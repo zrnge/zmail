@@ -2992,6 +2992,34 @@
       }
     }
 
+    // Helper: Decode Uint8Array/binary array into standard UTF-8 string safely
+    function getStringFromBytes(field) {
+      if (!field) return '';
+      if (typeof field === 'string') return field;
+      if (field instanceof Uint8Array || Array.isArray(field) || ArrayBuffer.isView(field) || field instanceof ArrayBuffer) {
+        try {
+          const bytes = field instanceof ArrayBuffer ? new Uint8Array(field) : new Uint8Array(field);
+          const decoder = new TextDecoder('utf-8');
+          return decoder.decode(bytes);
+        } catch (e) {
+          console.error('Failed to decode bytes via TextDecoder:', e);
+          try {
+            const arr = field instanceof ArrayBuffer ? new Uint8Array(field) : new Uint8Array(field);
+            let binary = '';
+            const len = arr.byteLength;
+            for (let i = 0; i < len; i += 8192) {
+              const chunk = arr.subarray ? arr.subarray(i, Math.min(i + 8192, len)) : arr.slice(i, Math.min(i + 8192, len));
+              binary += String.fromCharCode.apply(null, chunk);
+            }
+            return binary;
+          } catch (e2) {
+            return String(field);
+          }
+        }
+      }
+      return String(field);
+    }
+
     // Helper: Map Outlook MSG fields into standardized formats
     function convertMsgToStandardFormat(fileData, arrayBuffer) {
       // Parse raw headers string into array of {key, value}
@@ -3047,15 +3075,15 @@
       }
 
       return {
-        subject: fileData.subject || '(No Subject)',
+        subject: getStringFromBytes(fileData.subject) || '(No Subject)',
         from: from,
         to: to,
         cc: cc,
         bcc: bcc,
         date: dateHeader ? dateHeader.value : '',
         messageId: msgIdHeader ? msgIdHeader.value : '',
-        html: fileData.bodyHtml || fileData.html || fileData.bodyHTML || '',
-        text: fileData.body || fileData.bodyText || fileData.text || '',
+        html: getStringFromBytes(fileData.bodyHtml || fileData.html || fileData.bodyHTML || ''),
+        text: getStringFromBytes(fileData.body || fileData.bodyText || fileData.text || ''),
         headers: headers,
         attachments: attachments
       };
