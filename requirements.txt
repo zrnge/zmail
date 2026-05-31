@@ -1,2 +1,0 @@
-beautifulsoup4>=4.12.0
-extract_msg>=0.41.1
