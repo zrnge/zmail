@@ -2639,7 +2639,7 @@
   <script type="module">
     // Load client-side parsers dynamically
     import PostalMime from 'https://cdn.jsdelivr.net/npm/postal-mime@latest/+esm';
-    import MsgReader from 'https://esm.sh/@kenjiuno/msgreader@1.10.0';
+    import MsgReader from 'https://esm.sh/@kenjiuno/msgreader@1.28.0';
 
     // Expose MsgReader to window for backwards compatibility in other functions
     window.MsgReader = MsgReader;
@@ -3004,7 +3004,8 @@
       if (fileData.recipients) {
         fileData.recipients.forEach(r => {
           const type = (r.recipientType || r.type || 'to').toString().toLowerCase();
-          const addr = { name: r.name || '', address: r.email || '' };
+          const emailAddress = r.email || r.emailAddress || r.address || r.name || '';
+          const addr = { name: r.name || '', address: emailAddress };
           if (type === 'to' || type === '1') to.push(addr);
           else if (type === 'cc' || type === '2') cc.push(addr);
           else if (type === 'bcc' || type === '3') bcc.push(addr);
@@ -3013,9 +3014,10 @@
       }
 
       // Map Sender
+      const senderAddress = fileData.senderEmail || fileData.senderEmailAddress || fileData.senderName || '';
       const from = {
         name: fileData.senderName || '',
-        address: fileData.senderEmail || fileData.senderName || ''
+        address: senderAddress
       };
 
       // Extract specific headers
@@ -3031,9 +3033,10 @@
           try {
             const attachContent = reader.getAttachment(att);
             if (attachContent && attachContent.content) {
+              const filename = attachContent.fileName || attachContent.filename || att.fileName || att.filename || `attachment_${idx}`;
               attachments.push({
-                filename: attachContent.fileName || att.fileName || `attachment_${idx}`,
-                mimeType: getMimeTypeFromExtension(attachContent.fileName || att.fileName),
+                filename: filename,
+                mimeType: getMimeTypeFromExtension(filename),
                 content: attachContent.content // Uint8Array
               });
             }
@@ -3051,8 +3054,8 @@
         bcc: bcc,
         date: dateHeader ? dateHeader.value : '',
         messageId: msgIdHeader ? msgIdHeader.value : '',
-        html: fileData.bodyHtml || '',
-        text: fileData.body || '',
+        html: fileData.bodyHtml || fileData.html || fileData.bodyHTML || '',
+        text: fileData.body || fileData.bodyText || fileData.text || '',
         headers: headers,
         attachments: attachments
       };
@@ -3218,19 +3221,19 @@
           else if (val.includes('fail')) spf = 'fail';
         }
         if (key === 'authentication-results') {
-          const spfMatch = val.match(/spf=([^\s;]+)/);
+          const spfMatch = val.match(/spf\s*=\s*["']?([^\s;`"']+)/);
           if (spfMatch) {
             const status = spfMatch[1];
             if (status.includes('pass')) spf = 'pass';
             else if (status.includes('fail')) spf = 'fail';
           }
-          const dkimMatch = val.match(/dkim=([^\s;]+)/);
+          const dkimMatch = val.match(/dkim\s*=\s*["']?([^\s;`"']+)/);
           if (dkimMatch) {
             const status = dkimMatch[1];
             if (status.includes('pass')) dkim = 'pass';
             else if (status.includes('fail')) dkim = 'fail';
           }
-          const dmarcMatch = val.match(/dmarc=([^\s;]+)/);
+          const dmarcMatch = val.match(/dmarc\s*=\s*["']?([^\s;`"']+)/);
           if (dmarcMatch) {
             const status = dmarcMatch[1];
             if (status.includes('pass')) dmarc = 'pass';
