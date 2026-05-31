@@ -10,8 +10,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   
-  <!-- Client-side JSZip for zipping attachments -->
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <!-- Client-side zip.js for secure password-protected zipping of attachments -->
+  <script src="https://cdn.jsdelivr.net/npm/@zip.js/zip.js@2.7.30/dist/zip.min.js"></script>
   <!-- Browser-compatible Node.js Buffer polyfill for client-side Outlook MSG decoding -->
   <script src="https://cdn.jsdelivr.net/npm/buffer-polyfill@6.0.3/dist/buffer.umd.cjs"></script>
   <!-- Lucide Icons -->
@@ -2134,10 +2134,16 @@
           <p>
             Your browser blocks secure client-side module execution when opening HTML files directly via the <code>file://</code> protocol (double-clicking the file locally). 
           </p>
+          
+          <div style="background: rgba(99, 102, 241, 0.1); border-left: 3px solid var(--accent-primary); padding: 10px 14px; border-radius: 6px; margin: 12px 0; font-size: 13px; color: var(--text-primary); line-height: 1.5;">
+            <strong>🚀 Have you already pushed to GitHub?</strong><br>
+            Make sure you are visiting the <strong>live HTTPS URL</strong> in your browser's address bar (e.g., <code>https://zrnge.github.io/zmail</code>) instead of viewing the local file path (starting with <code>file:///</code>). 
+          </div>
+
           <p><strong>To enable all ZMail diagnostic capabilities:</strong></p>
           <ol>
+            <li><strong>Deploy statically (Recommended)</strong>: Push this folder to a GitHub repository and activate <strong>GitHub Pages</strong> in Settings for secure, private HTTPS execution.</li>
             <li><strong>Run a local server</strong>: Open a terminal in this folder and run <code>npx serve .</code> or <code>python -m http.server</code>, then open the provided <code>http://localhost</code> link in your browser.</li>
-            <li><strong>Deploy statically</strong>: Push this folder to a GitHub repository and activate <strong>GitHub Pages</strong> in Settings for secure, private HTTPS execution.</li>
           </ol>
         </div>
 
@@ -2475,9 +2481,16 @@
             <div class="attachments-card">
               <div class="card-table-header">
                 <h3>File Attachments</h3>
-                <button class="action-btn" id="download-all-zip-btn" disabled>
-                  <i data-lucide="folder-archive"></i> Download All as ZIP
-                </button>
+                <div class="zip-controls-container" style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                  <div class="zip-pwd-box" id="zip-pwd-box" style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted);">
+                    <input type="checkbox" id="zip-encrypt-checkbox" checked style="cursor: pointer; accent-color: var(--accent-primary);">
+                    <label for="zip-encrypt-checkbox" style="cursor: pointer; user-select: none;">Password Protect</label>
+                    <input type="text" id="zip-password-input" value="infected" placeholder="infected" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 4px; padding: 4px 8px; color: var(--text-normal); font-family: 'JetBrains Mono', monospace; font-size: 12px; width: 90px; outline: none;">
+                  </div>
+                  <button class="action-btn" id="download-all-zip-btn" disabled>
+                    <i data-lucide="folder-archive"></i> Download All as ZIP
+                  </button>
+                </div>
               </div>
 
               <!-- Attachments Grid -->
@@ -2602,7 +2615,7 @@
   </div>
 
   <footer class="app-footer">
-    <p>ZMail Diagnostics workbench // No data leaves your machine fully offline</p>
+    <p>ZMail Diagnostics workbench // Developed by zrnge // No data leaves your machine fully offline</p>
   </footer>
 
   <!-- CORS protocol detection and alert engine -->
@@ -2775,6 +2788,16 @@
 
       // Download attachments bundle
       document.getElementById('download-all-zip-btn').addEventListener('click', downloadAllAttachmentsZip);
+
+      // ZIP Password Protection toggle control
+      const encryptCheckbox = document.getElementById('zip-encrypt-checkbox');
+      const passwordInput = document.getElementById('zip-password-input');
+      if (encryptCheckbox && passwordInput) {
+        encryptCheckbox.addEventListener('change', (e) => {
+          passwordInput.disabled = !e.target.checked;
+          passwordInput.style.opacity = e.target.checked ? '1' : '0.5';
+        });
+      }
 
       // Modals close triggers
       document.getElementById('close-preview-btn').addEventListener('click', closePreviewModal);
@@ -3645,7 +3668,7 @@
       }
     }
 
-    // 7. CLIENT ZIP PACKAGING
+    // 7. CLIENT ZIP PACKAGING (via zip.js with WinZIP AES-256 encryption support)
     async function downloadAllAttachmentsZip() {
       const activeData = getTargetData();
       const attachments = activeData.attachments || [];
@@ -3659,14 +3682,45 @@
         zipBtn.innerHTML = `<i data-lucide="loader" class="animate-spin"></i> Building ZIP...`;
         lucide.createIcons();
 
-        const zip = new JSZip();
+        // 1. Get Password Protection Options
+        const encryptCheckbox = document.getElementById('zip-encrypt-checkbox');
+        const passwordInput = document.getElementById('zip-password-input');
+        
+        const isEncrypted = encryptCheckbox ? encryptCheckbox.checked : false;
+        const password = passwordInput ? passwordInput.value : '';
 
-        attachments.forEach((attach, idx) => {
-          const filename = attach.filename || `attachment_${idx}`;
-          zip.file(filename, attach.content);
-        });
+        // 2. Disable Web Workers in zip.js to make it 100% CORS-safe when double-clicking HTML locally
+        zip.configure({ useWebWorkers: false });
 
-        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        // 3. Setup zip.js BlobWriter
+        const blobWriter = new zip.BlobWriter("application/zip");
+        const writerOptions = {};
+        if (isEncrypted && password) {
+          writerOptions.password = password;
+          writerOptions.encryptionMethod = "aes"; // Use robust AES-256 encryption
+        }
+
+        const zipWriter = new zip.ZipWriter(blobWriter, writerOptions);
+
+        // 4. Add attachments binary content
+        for (let i = 0; i < attachments.length; i++) {
+          const attach = attachments[i];
+          const filename = attach.filename || `attachment_${i}`;
+          
+          let contentArray;
+          if (attach.content instanceof Uint8Array) {
+            contentArray = attach.content;
+          } else {
+            contentArray = new Uint8Array(attach.content);
+          }
+          
+          await zipWriter.add(filename, new zip.Uint8ArrayReader(contentArray));
+        }
+
+        // 5. Close and generate Blob
+        await zipWriter.close();
+        const zipBlob = await blobWriter.getData();
+
         const localUrl = URL.createObjectURL(zipBlob);
         
         const a = document.createElement('a');
