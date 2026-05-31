@@ -3031,8 +3031,8 @@
       const bcc = [];
       if (fileData.recipients) {
         fileData.recipients.forEach(r => {
-          const type = (r.recipientType || r.type || 'to').toString().toLowerCase();
-          const emailAddress = r.email || r.emailAddress || r.address || r.name || '';
+          const type = (r.recipType || r.recipientType || r.type || 'to').toString().toLowerCase();
+          const emailAddress = r.smtpAddress || r.email || r.emailAddress || r.address || r.name || '';
           const addr = { name: r.name || '', address: emailAddress };
           if (type === 'to' || type === '1') to.push(addr);
           else if (type === 'cc' || type === '2') cc.push(addr);
@@ -3042,7 +3042,7 @@
       }
 
       // Map Sender
-      const senderAddress = fileData.senderEmail || fileData.senderEmailAddress || fileData.senderName || '';
+      const senderAddress = fileData.senderSmtpAddress || fileData.senderEmail || fileData.senderEmailAddress || fileData.senderName || '';
       const from = {
         name: fileData.senderName || '',
         address: senderAddress
@@ -3074,14 +3074,17 @@
         });
       }
 
+      const parsedDate = dateHeader ? dateHeader.value : (fileData.clientSubmitTime || fileData.messageDeliveryTime || fileData.creationTime || '');
+      const parsedMsgId = msgIdHeader ? msgIdHeader.value : (fileData.messageId || '');
+
       return {
         subject: getStringFromBytes(fileData.subject) || '(No Subject)',
         from: from,
         to: to,
         cc: cc,
         bcc: bcc,
-        date: dateHeader ? dateHeader.value : '',
-        messageId: msgIdHeader ? msgIdHeader.value : '',
+        date: parsedDate,
+        messageId: parsedMsgId,
         html: getStringFromBytes(fileData.bodyHtml || fileData.html || fileData.bodyHTML || ''),
         text: getStringFromBytes(fileData.body || fileData.bodyText || fileData.text || ''),
         headers: headers,
