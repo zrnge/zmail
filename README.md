@@ -44,8 +44,23 @@ Detects every hyperlink in the email body. It flags:
 - Shortened URLs (e.g., bit.ly, tinyurl)
 - Tracking parameters
 
-### 5. Attachment Viewer & Exporter
-View file metadata and extract attachments instantly. You can inspect inline previews of text files (with search capabilities) or bundle all attachments into a single, clean `.zip` archive.
+### 5. Attachment Viewer & Password-Protected ZIP Exporter
+View file metadata and extract attachments instantly. Inspect inline previews of text files (with search capabilities) or bundle all attachments into a **secure, password-protected `.zip` archive** (AES-256 encrypted, defaulting to the malware-analyst standard password `"infected"`). This protects your local system by preventing accidental double-clicks or automatic antivirus scans from deleting sensitive payloads.
+
+> [!TIP]
+> **Why `"infected"`?** The password `infected` is the standard convention for sharing malware or suspicious payloads among security teams. It prevents antivirus software on your host system from automatically scanning and deleting the attachments, and prevents you from accidentally executing an attachment by double-clicking it.
+
+#### How to Extract the Secure Archive:
+* **Windows**: The built-in Windows Explorer extraction utility may fail or throw errors on modern AES-256 encrypted ZIPs. We recommend using **7-Zip** or **WinRAR**. Right-click the archive, select *7-Zip -> Extract Here*, and enter `infected` when prompted.
+* **macOS & Linux**: Use the native terminal `unzip` utility or `7z`:
+  ```bash
+  # Using the standard unzip command
+  unzip -P infected your_attachments.zip
+  
+  # Using the 7-Zip CLI tool
+  7z x -pinfected your_attachments.zip
+  ```
+
 
 ---
 
@@ -55,7 +70,7 @@ The app is built entirely using HTML5, modern vanilla CSS variables, and modular
 
 1. **EML Parser**: Powered by `postal-mime` loaded as a browser-native ESM module.
 2. **MSG Parser**: Powered by `@kenjiuno/msgreader` loaded via a UMD bundle, which handles binary decoding of Microsoft OLE compound files.
-3. **Zip Utility**: Powered by `JSZip` to handle client-side attachment archiving in browser memory.
+3. **Zip Utility**: Powered by `zip.js` to handle client-side attachment archiving, compression, and AES-256 password protection directly in browser memory without Web Workers (CORS-safe).
 4. **Icons**: Powered by `lucide-icons` for lightweight vector assets.
 
 ---
@@ -73,7 +88,13 @@ Because ZMail has zero build steps or server-side dependencies, hosting it on Gi
 2. Go to repository **Settings** -> **Pages**.
 3. Under **Build and deployment**, select your main branch as the source and click **Save**.
 
-Your secure diagnostics bench is now live at `https://<username>.github.io/<repository>/`.
+Your secure diagnostics bench is now live at [zrnge.github.io/zmail](https://zrnge.github.io/zmail).
+
+---
+
+## Author
+
+Developed and maintained by **[zrnge](https://github.com/zrnge)**.
 
 ---
 
