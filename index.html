@@ -1,0 +1,4235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZMail // Secure Offline EML & MSG Diagnostics workbench</title>
+  
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- Client-side JSZip for zipping attachments -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <!-- Browser-compatible Node.js Buffer polyfill for client-side Outlook MSG decoding -->
+  <script src="https://cdn.jsdelivr.net/npm/buffer-polyfill@6.0.3/dist/buffer.umd.cjs"></script>
+  <!-- Lucide Icons -->
+  <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+
+  <!-- ==============================================
+       STYLESHEET (VANILLA CSS WITH PREMIUM HIGH-GLOWS)
+       ============================================== -->
+  <style>
+    /* CSS Variables & System Tokens */
+    :root {
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+      
+      /* Obsidian Dark Theme (Default) */
+      --bg-app: #08090d;
+      --bg-card: rgba(18, 20, 29, 0.7);
+      --bg-card-solid: #12141d;
+      --bg-header: rgba(8, 9, 13, 0.8);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-glow: rgba(99, 102, 241, 0.15);
+      
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+      
+      /* HSL Accents */
+      --accent-primary: #6366f1; /* Neon Indigo */
+      --accent-primary-glow: rgba(99, 102, 241, 0.4);
+      --accent-secondary: #06b6d4; /* Neon Cyan */
+      --accent-secondary-glow: rgba(6, 182, 212, 0.4);
+      
+      /* Diagnostic Badges */
+      --color-success: #10b981;
+      --color-success-bg: rgba(16, 185, 129, 0.1);
+      --color-warning: #f59e0b;
+      --color-warning-bg: rgba(245, 158, 11, 0.1);
+      --color-danger: #ef4444;
+      --color-danger-bg: rgba(239, 68, 68, 0.15);
+      --color-info: #3b82f6;
+      --color-info-bg: rgba(59, 130, 246, 0.1);
+
+      /* Layout details */
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+      --shadow-md: 0 8px 30px rgba(0, 0, 0, 0.3);
+      --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5);
+      --shadow-glow: 0 0 25px rgba(99, 102, 241, 0.2);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      
+      --transition-fast: 0.15s ease;
+      --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body.light-mode {
+      --bg-app: #f4f6fa;
+      --bg-card: rgba(255, 255, 255, 0.85);
+      --bg-card-solid: #ffffff;
+      --bg-header: rgba(244, 246, 250, 0.8);
+      --border-color: rgba(15, 23, 42, 0.08);
+      --border-glow: rgba(99, 102, 241, 0.1);
+      
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #64748b;
+      
+      --accent-primary: #4f46e5;
+      --accent-primary-glow: rgba(79, 70, 229, 0.25);
+      --accent-secondary: #0891b2;
+      --accent-secondary-glow: rgba(8, 145, 178, 0.25);
+      
+      --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.05);
+      --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08);
+      --shadow-lg: 0 16px 32px rgba(15, 23, 42, 0.12);
+      --shadow-glow: 0 0 20px rgba(79, 70, 229, 0.1);
+      
+      --color-success-bg: rgba(16, 185, 129, 0.15);
+      --color-warning-bg: rgba(245, 158, 11, 0.15);
+      --color-danger-bg: rgba(239, 68, 68, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-app);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      position: relative;
+      transition: background-color var(--transition-normal), color var(--transition-normal);
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.05);
+    }
+    body.dark-mode ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--text-muted);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--accent-primary);
+    }
+
+    /* Background glows */
+    .radial-glow {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      filter: blur(140px);
+      pointer-events: none;
+      opacity: 0.15;
+      z-index: 0;
+      transition: opacity var(--transition-slow);
+    }
+    body.light-mode .radial-glow {
+      opacity: 0.07;
+    }
+    .glow-1 {
+      background: radial-gradient(circle, var(--accent-primary) 0%, transparent 70%);
+      top: -100px;
+      left: -100px;
+    }
+    .glow-2 {
+      background: radial-gradient(circle, var(--accent-secondary) 0%, transparent 70%);
+      bottom: -150px;
+      right: -100px;
+    }
+
+    span.info-highlight {
+      color: var(--accent-secondary);
+    }
+    .mt-3 { margin-top: 0.75rem; }
+    .mt-4 { margin-top: 1rem; }
+    .span-full { grid-column: 1 / -1; }
+    .text-copyable {
+      cursor: pointer;
+      position: relative;
+      transition: color var(--transition-fast);
+    }
+    .text-copyable:hover {
+      color: var(--accent-secondary);
+    }
+    .text-copyable::after {
+      content: 'Click to copy';
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%) translateY(-4px);
+      background: var(--bg-card-solid);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition-fast);
+      white-space: nowrap;
+    }
+    .text-copyable:hover::after {
+      opacity: 1;
+    }
+
+    /* Header */
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background-color: var(--bg-header);
+      border-bottom: 1px solid var(--border-color);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 0.75rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: var(--shadow-sm);
+      transition: background-color var(--transition-normal), border-color var(--transition-normal);
+    }
+
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-container {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: transform var(--transition-fast);
+    }
+    .logo-container:hover {
+      transform: scale(1.08) rotate(-2deg);
+    }
+
+    .logo-title {
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      line-height: 1.1;
+      color: var(--text-primary);
+    }
+    .logo-title span {
+      background: linear-gradient(to right, var(--accent-primary), var(--accent-secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .logo-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.5px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+    }
+
+    .privacy-badge {
+      background: var(--color-success-bg);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      color: var(--color-success);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 50px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.05);
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background-color: var(--color-success);
+      border-radius: 50%;
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      animation: pulse-green 2s infinite;
+    }
+
+    @keyframes pulse-green {
+      0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      }
+      70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+      }
+      100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+      }
+    }
+
+    .badge-icon {
+      width: 14px;
+      height: 14px;
+    }
+
+    .theme-toggle-btn {
+      background: var(--bg-card-solid);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      box-shadow: var(--shadow-sm);
+      transition: all var(--transition-fast);
+      position: relative;
+      overflow: hidden;
+    }
+    .theme-toggle-btn:hover {
+      border-color: var(--accent-primary);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-glow);
+    }
+    .sun-icon {
+      display: none;
+      width: 18px;
+      height: 18px;
+    }
+    .moon-icon {
+      display: block;
+      width: 18px;
+      height: 18px;
+    }
+    body.light-mode .sun-icon {
+      display: block;
+    }
+    body.light-mode .moon-icon {
+      display: none;
+    }
+
+    /* Container */
+    .app-container {
+      flex: 1;
+      width: 100%;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 2rem;
+      z-index: 1;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .screen {
+      display: none;
+      opacity: 0;
+      transition: opacity var(--transition-normal);
+    }
+    .screen.active {
+      display: grid;
+      opacity: 1;
+      animation: fadeIn var(--transition-normal) forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* UPLOAD SCREEN STYLES */
+    .upload-screen {
+      grid-template-columns: 1fr;
+      max-width: 900px;
+      margin: 2rem auto;
+      width: 100%;
+    }
+
+    .upload-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 3rem;
+      box-shadow: var(--shadow-lg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      position: relative;
+      overflow: hidden;
+      transition: border-color var(--transition-normal);
+    }
+    .upload-card:hover {
+      border-color: var(--border-glow);
+    }
+
+    .card-glow-bg {
+      position: absolute;
+      top: -10%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 150px;
+      height: 150px;
+      background: radial-gradient(circle, var(--accent-primary-glow) 0%, transparent 80%);
+      filter: blur(25px);
+      pointer-events: none;
+    }
+
+    .upload-header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    .upload-header h2 {
+      font-size: 2.25rem;
+      font-weight: 800;
+      letter-spacing: -0.75px;
+      margin-bottom: 0.75rem;
+      background: linear-gradient(to right, var(--text-primary) 30%, var(--text-secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .upload-header p {
+      color: var(--text-secondary);
+      font-size: 1rem;
+      line-height: 1.6;
+      max-width: 650px;
+      margin: 0 auto;
+    }
+    .upload-header p span {
+      color: var(--accent-secondary);
+      font-weight: 600;
+      background: rgba(6, 182, 212, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .dropzone {
+      border: 2px dashed var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 3rem 2rem;
+      text-align: center;
+      background: rgba(0, 0, 0, 0.15);
+      cursor: pointer;
+      position: relative;
+      transition: all var(--transition-normal);
+      overflow: hidden;
+    }
+    body.light-mode .dropzone {
+      background: rgba(0, 0, 0, 0.02);
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent-primary);
+      background: rgba(99, 102, 241, 0.04);
+      box-shadow: 0 0 30px rgba(99, 102, 241, 0.08);
+    }
+    .dropzone-border-glow {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      border-radius: var(--radius-md);
+      border: 2px solid transparent;
+      pointer-events: none;
+      transition: border-color var(--transition-fast);
+    }
+    .dropzone.dragover .dropzone-border-glow {
+      border-color: var(--accent-secondary);
+      animation: borderGlowPulse 1.5s infinite;
+    }
+
+    @keyframes borderGlowPulse {
+      0% { box-shadow: inset 0 0 10px rgba(6, 182, 212, 0.2); }
+      50% { box-shadow: inset 0 0 25px rgba(6, 182, 212, 0.4); }
+      100% { box-shadow: inset 0 0 10px rgba(6, 182, 212, 0.2); }
+    }
+
+    .dropzone-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 1;
+      position: relative;
+    }
+
+    .dropzone-icon-box {
+      width: 70px;
+      height: 70px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 1.25rem;
+      transition: transform var(--transition-fast), border-color var(--transition-fast);
+    }
+    .dropzone:hover .dropzone-icon-box, .dropzone.dragover .dropzone-icon-box {
+      transform: translateY(-5px) scale(1.05);
+      border-color: var(--accent-primary);
+      background: rgba(99, 102, 241, 0.1);
+    }
+    .dropzone-icon {
+      width: 32px;
+      height: 32px;
+      color: var(--text-secondary);
+      transition: color var(--transition-fast);
+    }
+    .dropzone:hover .dropzone-icon, .dropzone.dragover .dropzone-icon {
+      color: var(--accent-primary);
+    }
+
+    .dropzone h3 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    .dropzone p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .dropzone-divider {
+      width: 100%;
+      max-width: 250px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 1.25rem 0;
+    }
+    .dropzone-divider::before, .dropzone-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border-color);
+    }
+    .dropzone-divider span {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    /* Buttons */
+    .select-file-btn, .action-btn {
+      background: linear-gradient(135deg, var(--accent-primary) 0%, #4f46e5 100%);
+      color: #ffffff;
+      border: none;
+      font-family: var(--font-sans);
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 10px 24px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.25);
+      transition: all var(--transition-fast);
+    }
+    .select-file-btn:hover, .action-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+      filter: brightness(1.1);
+    }
+    .select-file-btn:active, .action-btn:active {
+      transform: translateY(0);
+    }
+
+    .action-btn.small-btn {
+      padding: 6px 14px;
+      font-size: 0.8rem;
+      border-radius: 6px;
+    }
+
+    .action-btn.secondary-btn, .back-btn {
+      background: var(--bg-card-solid);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-sm);
+    }
+    .action-btn.secondary-btn:hover, .back-btn:hover {
+      background: rgba(255, 255, 255, 0.03);
+      border-color: var(--text-secondary);
+      box-shadow: var(--shadow-sm);
+      transform: translateY(-2px);
+    }
+    body.light-mode .action-btn.secondary-btn:hover, body.light-mode .back-btn:hover {
+      background: rgba(0, 0, 0, 0.02);
+    }
+
+    /* Paste accordion */
+    .paste-section {
+      margin-top: 1.5rem;
+      border-top: 1px solid var(--border-color);
+      padding-top: 1.5rem;
+    }
+
+    .paste-toggle-btn {
+      width: 100%;
+      background: none;
+      border: none;
+      font-family: var(--font-sans);
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: var(--radius-sm);
+      transition: all var(--transition-fast);
+    }
+    .paste-toggle-btn:hover {
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-primary);
+    }
+    body.light-mode .paste-toggle-btn:hover {
+      background: rgba(0, 0, 0, 0.01);
+    }
+    .paste-toggle-btn div {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chevron-icon {
+      width: 16px;
+      height: 16px;
+      transition: transform var(--transition-fast);
+    }
+    .paste-section.open .chevron-icon {
+      transform: rotate(180deg);
+    }
+
+    .paste-textarea-container {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 1rem;
+      animation: slideDown var(--transition-fast) forwards;
+    }
+    .paste-section.open .paste-textarea-container {
+      display: flex;
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .paste-textarea-container textarea {
+      width: 100%;
+      height: 180px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-primary);
+      resize: vertical;
+      transition: border-color var(--transition-fast);
+    }
+    body.light-mode .paste-textarea-container textarea {
+      background: rgba(255, 255, 255, 0.6);
+    }
+    .paste-textarea-container textarea:focus {
+      outline: none;
+      border-color: var(--accent-secondary);
+    }
+
+    .analyze-raw-btn {
+      align-self: flex-end;
+      background: linear-gradient(135deg, var(--accent-secondary) 0%, #0891b2 100%);
+      color: #ffffff;
+      border: none;
+      font-family: var(--font-sans);
+      font-weight: 600;
+      font-size: 0.85rem;
+      padding: 8px 18px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 15px rgba(6, 182, 212, 0.2);
+      transition: all var(--transition-fast);
+    }
+    .analyze-raw-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(6, 182, 212, 0.35);
+      filter: brightness(1.1);
+    }
+
+    .assurances-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+      margin-top: 3rem;
+      border-top: 1px solid var(--border-color);
+      padding-top: 2rem;
+    }
+
+    .assurance-card {
+      text-align: left;
+    }
+    .assure-icon {
+      width: 20px;
+      height: 20px;
+      color: var(--accent-secondary);
+      margin-bottom: 0.75rem;
+    }
+    .assurance-card h4 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+    }
+    .assurance-card p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* DASHBOARD SCREEN & SIDEBAR */
+    .dashboard-screen {
+      grid-template-columns: 320px 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+
+    .sidebar-pane {
+      position: sticky;
+      top: 90px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .sidebar-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      box-shadow: var(--shadow-md);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .back-btn {
+      width: 100%;
+      padding: 10px 16px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 1.5rem;
+      transition: all var(--transition-fast);
+    }
+
+    .email-summary-box {
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1.5rem;
+    }
+
+    .meta-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      margin-bottom: 4px;
+    }
+
+    .email-summary-subject {
+      font-size: 1.15rem;
+      font-weight: 800;
+      line-height: 1.3;
+      color: var(--text-primary);
+      word-break: break-word;
+    }
+
+    .email-summary-from, .email-summary-to, .email-summary-date {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      word-break: break-all;
+      line-height: 1.4;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 1.5rem;
+    }
+
+    .stat-box {
+      background: rgba(0, 0, 0, 0.15);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      text-align: center;
+    }
+    body.light-mode .stat-box {
+      background: rgba(0, 0, 0, 0.02);
+    }
+    .stat-val {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--accent-secondary);
+    }
+    .stat-lbl {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    /* Session History Widget */
+    .history-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      box-shadow: var(--shadow-md);
+      display: flex;
+      flex-direction: column;
+      max-height: 250px;
+    }
+    .history-card h4 {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 8px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .history-list-viewport {
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .history-item {
+      padding: 8px;
+      border-radius: var(--radius-sm);
+      background: rgba(0, 0, 0, 0.1);
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all var(--transition-fast);
+      position: relative;
+    }
+    body.light-mode .history-item {
+      background: rgba(0, 0, 0, 0.01);
+    }
+    .history-item:hover {
+      border-color: var(--accent-secondary);
+      background: rgba(6, 182, 212, 0.04);
+    }
+    .history-item.active {
+      border-color: var(--accent-primary);
+      background: rgba(99, 102, 241, 0.06);
+    }
+    .history-meta-box {
+      width: calc(100% - 24px);
+      overflow: hidden;
+    }
+    .history-subj {
+      font-size: 0.8rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-primary);
+    }
+    .history-from {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .delete-history-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 2px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition-fast);
+    }
+    .delete-history-btn:hover {
+      background: var(--color-danger-bg);
+      color: var(--color-danger);
+    }
+
+    /* Security card list */
+    .security-card {
+      background: rgba(239, 68, 68, 0.03);
+      border: 1px solid rgba(239, 68, 68, 0.15);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+    }
+    .security-card.secure {
+      background: rgba(16, 185, 129, 0.03);
+      border-color: rgba(16, 185, 129, 0.15);
+    }
+    .sec-card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 0.75rem;
+    }
+    .sec-icon {
+      width: 16px;
+      height: 16px;
+      color: var(--color-danger);
+    }
+    .security-card.secure .sec-icon {
+      color: var(--color-success);
+    }
+    .sec-card-header h4 {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .sec-card-body {
+      font-size: 0.75rem;
+      line-height: 1.5;
+    }
+
+    .sec-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .sec-list-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
+    .sec-bullet {
+      margin-top: 4px;
+      width: 5px;
+      height: 5px;
+      background-color: var(--color-danger);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .sec-bullet.warning {
+      background-color: var(--color-warning);
+    }
+    .sec-bullet.success {
+      background-color: var(--color-success);
+    }
+
+    .sec-text {
+      color: var(--text-secondary);
+    }
+
+    /* Workspace & Dashboard Grid */
+    .workspace-area {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .tabs-nav {
+      display: flex;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 6px;
+      box-shadow: var(--shadow-sm);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      overflow-x: auto;
+      gap: 4px;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      font-family: var(--font-sans);
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 10px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all var(--transition-fast);
+      white-space: nowrap;
+    }
+    .tab-btn:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.02);
+    }
+    body.light-mode .tab-btn:hover {
+      background: rgba(0, 0, 0, 0.02);
+    }
+    .tab-btn.active {
+      background: var(--accent-primary);
+      color: #ffffff;
+      box-shadow: var(--shadow-glow);
+    }
+
+    .tab-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      background: rgba(0, 0, 0, 0.25);
+      color: #ffffff;
+      padding: 2px 6px;
+      border-radius: 50px;
+      margin-left: 2px;
+    }
+    .tab-btn.active .tab-badge {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .tabs-viewport {
+      min-height: 550px;
+    }
+
+    .tab-content {
+      display: none;
+      animation: fadeIn var(--transition-normal) forwards;
+    }
+    .tab-content.active {
+      display: block;
+    }
+
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+    }
+
+    .overview-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      box-shadow: var(--shadow-md);
+    }
+
+    .overview-card h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 0.75rem;
+    }
+
+    .btn-group-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .info-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .info-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .info-value {
+      font-size: 0.85rem;
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+      word-break: break-all;
+    }
+
+    /* Authenticity Seals */
+    .seals-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 1rem;
+    }
+    .seal-badge {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transition: all var(--transition-fast);
+    }
+    body.light-mode .seal-badge {
+      background: rgba(0,0,0,0.02);
+    }
+    .seal-name {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .seal-status {
+      font-size: 0.9rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .seal-status.pass { color: var(--color-success); text-shadow: 0 0 10px rgba(16, 185, 129, 0.3); }
+    .seal-status.fail { color: var(--color-danger); text-shadow: 0 0 10px rgba(239, 68, 68, 0.3); }
+    .seal-status.neutral { color: var(--text-secondary); }
+
+    /* Privacy controls */
+    .privacy-status-box {
+      background: rgba(16, 185, 129, 0.02);
+      border: 1px solid rgba(16, 185, 129, 0.1);
+      border-radius: var(--radius-sm);
+      padding: 1.25rem;
+    }
+
+    .privacy-status-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+    }
+    .privacy-status-indicator {
+      width: 10px;
+      height: 10px;
+      background-color: var(--text-muted);
+      border-radius: 50%;
+    }
+    .privacy-status-indicator.active {
+      background-color: var(--color-success);
+      box-shadow: 0 0 8px var(--color-success);
+    }
+
+    .privacy-status-text {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .checkbox-container {
+      display: block;
+      position: relative;
+      padding-left: 28px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      user-select: none;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .checkbox-container input {
+      position: absolute;
+      opacity: 0;
+      cursor: pointer;
+      height: 0; width: 0;
+    }
+    .checkmark {
+      position: absolute;
+      top: 1px;
+      left: 0;
+      height: 18px;
+      width: 18px;
+      background-color: rgba(0,0,0,0.25);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      transition: all var(--transition-fast);
+    }
+    body.light-mode .checkmark {
+      background-color: #e2e8f0;
+    }
+    .checkbox-container:hover input ~ .checkmark {
+      border-color: var(--accent-primary);
+    }
+    .checkbox-container input:checked ~ .checkmark {
+      background-color: var(--accent-primary);
+      border-color: var(--accent-primary);
+    }
+    .checkmark:after {
+      content: "";
+      position: absolute;
+      display: none;
+    }
+    .checkbox-container input:checked ~ .checkmark:after {
+      display: block;
+    }
+    .checkbox-container .checkmark:after {
+      left: 5px;
+      top: 2px;
+      width: 4px;
+      height: 8px;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+
+    .redact-notice-box {
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      background: rgba(245, 158, 11, 0.03);
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      color: var(--color-warning);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 1rem;
+    }
+
+    /* EMAIL BODY VIEWPORT STYLES */
+    .body-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+    }
+
+    .body-card-header {
+      padding: 10px 1.5rem;
+      background: rgba(0, 0, 0, 0.15);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    body.light-mode .body-card-header {
+      background: rgba(0,0,0,0.01);
+    }
+
+    .body-view-toggles {
+      display: flex;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 3px;
+    }
+    body.light-mode .body-view-toggles {
+      background: #e2e8f0;
+    }
+
+    .view-toggle-btn {
+      background: none;
+      border: none;
+      font-family: var(--font-sans);
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .view-toggle-btn.active {
+      background: var(--bg-card-solid);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .body-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .shield-notice {
+      font-size: 0.75rem;
+      color: var(--color-success);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--color-success-bg);
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid rgba(16, 185, 129, 0.15);
+    }
+    .shield-notice.warning {
+      color: var(--color-warning);
+      background: var(--color-warning-bg);
+      border-color: rgba(245, 158, 11, 0.15);
+    }
+
+    .iframe-container {
+      width: 100%;
+      height: 600px;
+      background: #ffffff;
+      position: relative;
+    }
+    .iframe-container iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: transparent;
+    }
+
+    .text-viewport {
+      width: 100%;
+      height: 600px;
+      background: var(--bg-card-solid);
+      padding: 1.5rem;
+      overflow: auto;
+    }
+    .text-viewport pre {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.6;
+    }
+
+    /* Technical details grids */
+    .urls-card, .attachments-card, .hops-card, .headers-card, .raw-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      box-shadow: var(--shadow-md);
+    }
+
+    .card-table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .card-sub-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: -8px;
+    }
+
+    .search-box {
+      position: relative;
+      width: 300px;
+    }
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 15px;
+      height: 15px;
+      color: var(--text-muted);
+    }
+    .search-box input {
+      width: 100%;
+      padding: 8px 12px 8px 32px;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+    }
+    body.light-mode .search-box input {
+      background: rgba(255, 255, 255, 0.8);
+    }
+    .search-box input:focus {
+      outline: none;
+      border-color: var(--accent-primary);
+    }
+
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    .urls-table, .headers-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.85rem;
+    }
+
+    .urls-table th, .headers-table th {
+      padding: 12px 16px;
+      background: rgba(0, 0, 0, 0.2);
+      color: var(--text-secondary);
+      font-weight: 700;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid var(--border-color);
+    }
+    body.light-mode .urls-table th, body.light-mode .headers-table th {
+      background: #f1f5f9;
+    }
+
+    .urls-table td, .headers-table td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: middle;
+      word-break: break-all;
+    }
+
+    .urls-table tr:hover, .headers-table tr:hover {
+      background: rgba(255, 255, 255, 0.015);
+    }
+    body.light-mode .urls-table tr:hover, body.light-mode .headers-table tr:hover {
+      background: rgba(0, 0, 0, 0.005);
+    }
+
+    .domain-cell {
+      font-weight: 600;
+      color: var(--accent-secondary);
+      word-break: normal !important;
+    }
+
+    .url-link-cell {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      max-width: 400px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-secondary);
+    }
+
+    /* Safety flag badges */
+    .flag-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .flag-pill.danger {
+      color: var(--color-danger);
+      background: var(--color-danger-bg);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+    }
+    .flag-pill.warning {
+      color: var(--color-warning);
+      background: var(--color-warning-bg);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+    .flag-pill.success {
+      color: var(--color-success);
+      background: var(--color-success-bg);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    /* ATTACHMENT CARD GRID */
+    .attachments-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .attachment-card {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      position: relative;
+      transition: all var(--transition-fast);
+    }
+    body.light-mode .attachment-card {
+      background: rgba(255,255,255,0.7);
+    }
+    .attachment-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--accent-primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .attach-card-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .attach-icon-wrapper {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .attach-icon-wrapper.image { background: rgba(6, 182, 212, 0.1); color: var(--accent-secondary); }
+    .attach-icon-wrapper.pdf { background: rgba(239, 68, 68, 0.1); color: var(--color-danger); }
+    .attach-icon-wrapper.zip { background: rgba(168, 85, 247, 0.1); color: #a855f7; }
+    .attach-icon-wrapper.doc { background: rgba(59, 130, 246, 0.1); color: var(--color-info); }
+    .attach-icon-wrapper.default { background: rgba(99, 102, 241, 0.1); color: var(--accent-primary); }
+
+    .attach-icon-wrapper i {
+      width: 22px;
+      height: 22px;
+    }
+
+    .attach-meta {
+      overflow: hidden;
+    }
+    .attach-name {
+      font-size: 0.85rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-primary);
+    }
+    .attach-size {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .attach-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: auto;
+    }
+
+    .attach-card-btn {
+      background: var(--bg-card-solid);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 6px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all var(--transition-fast);
+    }
+    .attach-card-btn:hover {
+      background: rgba(255, 255, 255, 0.03);
+      border-color: var(--text-secondary);
+    }
+    body.light-mode .attach-card-btn:hover {
+      background: rgba(0,0,0,0.02);
+    }
+    .attach-card-btn.primary {
+      background: var(--accent-primary);
+      border-color: var(--accent-primary);
+      color: #ffffff;
+    }
+    .attach-card-btn.primary:hover {
+      filter: brightness(1.1);
+    }
+
+    .no-attachments-placeholder {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4rem 2rem;
+      color: var(--text-muted);
+    }
+    .placeholder-icon {
+      width: 48px;
+      height: 48px;
+      color: var(--border-color);
+      margin-bottom: 1rem;
+    }
+
+    /* SERVER ROUTING TIMELINE */
+    .hops-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      position: relative;
+      padding-left: 20px;
+      margin-left: 10px;
+    }
+    .hops-timeline::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 10px;
+      bottom: 10px;
+      width: 2px;
+      background: linear-gradient(to bottom, var(--accent-secondary), var(--accent-primary));
+    }
+
+    .hop-node {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      position: relative;
+    }
+
+    .hop-marker {
+      position: absolute;
+      left: -25px;
+      top: 3px;
+      width: 12px;
+      height: 12px;
+      background: var(--bg-card-solid);
+      border: 2px solid var(--accent-secondary);
+      border-radius: 50%;
+      z-index: 1;
+      box-shadow: 0 0 8px var(--accent-secondary);
+      transition: all var(--transition-fast);
+    }
+    .hop-node:nth-child(even) .hop-marker {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 8px var(--accent-primary);
+    }
+    .hop-node:hover .hop-marker {
+      transform: scale(1.3);
+      background: #ffffff;
+    }
+
+    .hop-info-card {
+      background: rgba(0, 0, 0, 0.15);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      flex: 1;
+      transition: all var(--transition-fast);
+    }
+    body.light-mode .hop-info-card {
+      background: rgba(255,255,255,0.6);
+    }
+    .hop-node:hover .hop-info-card {
+      border-color: var(--accent-secondary);
+      background: rgba(6, 182, 212, 0.02);
+    }
+
+    .hop-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .hop-number {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .hop-time {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .hop-servers {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-top: 4px;
+    }
+    .hop-servers span.hop-arrow {
+      color: var(--accent-secondary);
+      margin: 0 6px;
+    }
+
+    .hops-details-row {
+      display: flex;
+      gap: 16px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .hop-detail-item {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+    .hop-detail-item strong {
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    /* Code layout */
+    .raw-code-container {
+      display: flex;
+      background: #0b0c10;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      overflow: auto;
+      height: 500px;
+      position: relative;
+    }
+
+    .line-numbers {
+      padding: 1.5rem 0.75rem;
+      background: rgba(0, 0, 0, 0.3);
+      border-right: 1px solid var(--border-color);
+      text-align: right;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      user-select: none;
+      min-width: 45px;
+    }
+
+    .raw-code-viewport {
+      padding: 1.5rem;
+      flex: 1;
+      overflow: visible;
+    }
+    .raw-code-viewport code {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: #a5b4fc;
+      white-space: pre;
+      word-break: keep-all;
+    }
+
+    /* PREVIEW MODAL & INLINE SEARCH */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 100;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+      opacity: 0;
+      transition: opacity var(--transition-normal);
+    }
+    .modal-overlay.active {
+      display: flex;
+      opacity: 1;
+    }
+
+    .preview-modal-card {
+      background: var(--bg-card-solid);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-lg);
+      width: 100%;
+      max-width: 800px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      transform: scale(0.95);
+      transition: transform var(--transition-normal);
+      overflow: hidden;
+    }
+    .modal-overlay.active .preview-modal-card {
+      transform: scale(1);
+    }
+
+    .modal-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-title-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      overflow: hidden;
+    }
+    .modal-title-box i {
+      color: var(--accent-primary);
+      width: 22px;
+      height: 22px;
+    }
+    .modal-title-box h3 {
+      font-size: 1.1rem;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .modal-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* Sticky Search Toolbar inside Modal */
+    .preview-search-toolbar {
+      display: none; /* Active only on text type previews */
+      align-items: center;
+      gap: 10px;
+      background: rgba(0, 0, 0, 0.3);
+      border-bottom: 1px solid var(--border-color);
+      padding: 10px 1.5rem;
+    }
+    body.light-mode .preview-search-toolbar {
+      background: rgba(0,0,0,0.02);
+    }
+    .preview-search-toolbar .search-box {
+      width: 240px;
+    }
+    .search-results-count {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    /* Highlighting search matches */
+    mark.search-match {
+      background-color: rgba(245, 158, 11, 0.3);
+      color: #ffffff;
+      border-radius: 2px;
+      padding: 0 2px;
+      box-shadow: 0 0 4px rgba(245, 158, 11, 0.5);
+    }
+    mark.search-match.active {
+      background-color: var(--color-warning);
+      color: #000000;
+      font-weight: 700;
+      box-shadow: 0 0 10px var(--color-warning);
+    }
+
+    .modal-close-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: all var(--transition-fast);
+    }
+    .modal-close-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-primary);
+    }
+
+    .modal-viewport {
+      flex: 1;
+      overflow: auto;
+      background: rgba(0, 0, 0, 0.2);
+      min-height: 350px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .preview-render-area {
+      padding: 1.5rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .preview-image {
+      max-width: 100%;
+      max-height: 450px;
+      object-fit: contain;
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--border-color);
+    }
+
+    .preview-text {
+      width: 100%;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+      word-break: break-all;
+      text-align: left;
+      line-height: 1.5;
+    }
+
+    .preview-pdf-frame {
+      width: 100%;
+      height: 450px;
+      border: none;
+    }
+
+    .preview-fallback {
+      text-align: center;
+      color: var(--text-secondary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .preview-fallback i {
+      width: 48px;
+      height: 48px;
+      color: var(--text-muted);
+    }
+
+    .modal-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .preview-safe-badge {
+      font-size: 0.75rem;
+      color: var(--color-success);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 500;
+    }
+    .preview-safe-badge i {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* Footer */
+    .app-footer {
+      text-align: center;
+      padding: 2rem;
+      border-top: 1px solid var(--border-color);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 500;
+      margin-top: auto;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .dashboard-screen {
+        grid-template-columns: 1fr;
+      }
+      .sidebar-pane {
+        position: static;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .app-header {
+        padding: 0.75rem 1rem;
+        flex-direction: column;
+        gap: 12px;
+        align-items: stretch;
+      }
+      .header-actions {
+        justify-content: space-between;
+      }
+      .app-container {
+        padding: 1rem;
+      }
+      .upload-card {
+        padding: 1.5rem;
+      }
+      .assurances-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      .overview-grid {
+        grid-template-columns: 1fr;
+      }
+      .hop-header-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+      }
+    }
+
+    /* Local CORS restriction alert */
+    .cors-alert-card {
+      display: none; /* Hidden by default, shown via JS check */
+      margin-top: 1.5rem;
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: 12px;
+      padding: 1.2rem 1.5rem;
+      text-align: left;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+      animation: fadeIn 0.4s ease-out;
+    }
+    .cors-alert-card h3 {
+      color: #f87171;
+      font-size: 15px;
+      margin: 0 0 8px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+    }
+    .cors-alert-card p {
+      color: #94a3b8;
+      font-size: 13px;
+      line-height: 1.6;
+      margin: 0 0 12px 0;
+    }
+    .cors-alert-card ol {
+      color: #e2e8f0;
+      font-size: 13px;
+      line-height: 1.6;
+      margin: 0 0 0 20px;
+      padding: 0;
+    }
+    .cors-alert-card li {
+      margin-bottom: 6px;
+    }
+    .cors-alert-card li:last-child {
+      margin-bottom: 0;
+    }
+    .cors-alert-card li code {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      color: #f43f5e;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body class="dark-mode">
+
+  <!-- Glow Background Accents -->
+  <div class="radial-glow glow-1"></div>
+  <div class="radial-glow glow-2"></div>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-logo">
+      <!-- Shield & Sword Z Logo -->
+      <div class="logo-container">
+        <svg viewBox="0 0 100 100" style="width: 100%; height: 100%;">
+          <path d="M50 8 L90 20 L90 55 C90 75 75 90 50 94 C25 90 10 75 10 55 L10 20 Z" fill="url(#shield-grad)" stroke="url(#border-grad)" stroke-width="3.5" />
+          <!-- Sword drawn forming a Z diagonally -->
+          <path d="M28 28 L72 28" stroke="var(--accent-secondary)" stroke-width="5" stroke-linecap="round" filter="url(#glow)" />
+          <path d="M72 28 L28 72" stroke="var(--accent-primary)" stroke-width="6.5" stroke-linecap="round" filter="url(#glow)" />
+          <path d="M28 72 L72 72" stroke="var(--accent-secondary)" stroke-width="5" stroke-linecap="round" filter="url(#glow)" />
+          <!-- Hilt -->
+          <circle cx="75" cy="25" r="3.5" fill="#ffffff" />
+          <line x1="75" y1="25" x2="25" y2="75" stroke="#ffffff" stroke-width="2.5" />
+          <line x1="68" y1="24" x2="74" y2="30" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" />
+          <defs>
+            <linearGradient id="shield-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#181432" />
+              <stop offset="100%" stop-color="#090a0f" />
+            </linearGradient>
+            <linearGradient id="border-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#6366f1" />
+              <stop offset="100%" stop-color="#06b6d4" />
+            </linearGradient>
+            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="2.5" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+          </defs>
+        </svg>
+      </div>
+      <div>
+        <h1 class="logo-title">Z<span>Mail</span></h1>
+        <p class="logo-subtitle">Offline Diagnostics Workbench</p>
+      </div>
+    </div>
+    
+    <div class="header-actions">
+      <!-- Privacy Badge -->
+      <div class="privacy-badge">
+        <span class="pulse-dot"></span>
+        <i data-lucide="lock" class="badge-icon"></i>
+        <span>No data leaves your machine fully offline</span>
+      </div>
+
+      <!-- Theme Switcher -->
+      <button class="theme-toggle-btn" id="theme-toggle" title="Toggle Light/Dark Mode">
+        <i data-lucide="sun" class="sun-icon"></i>
+        <i data-lucide="moon" class="moon-icon"></i>
+      </button>
+    </div>
+  </header>
+
+  <main class="app-container">
+    
+    <!-- ==============================================
+         1. UPLOAD SCREEN (Initial State)
+         ============================================== -->
+    <section class="screen upload-screen active" id="upload-screen">
+      <div class="upload-card">
+        <div class="card-glow-bg"></div>
+        <div class="upload-header">
+          <h2>Audit Emails Safely</h2>
+          <p>Drag and drop any <span>.eml</span> or <span>.msg</span> file to trace routing hops, unpack attachments, analyze SPF/DKIM verification keys, and scan links 100% privately.</p>
+        </div>
+
+        <!-- CORS Local Restriction Card -->
+        <div class="cors-alert-card" id="cors-local-alert">
+          <h3>
+            <i data-lucide="shield-alert"></i> 
+            Local Security Restriction Active
+          </h3>
+          <p>
+            Your browser blocks secure client-side module execution when opening HTML files directly via the <code>file://</code> protocol (double-clicking the file locally). 
+          </p>
+          <p><strong>To enable all ZMail diagnostic capabilities:</strong></p>
+          <ol>
+            <li><strong>Run a local server</strong>: Open a terminal in this folder and run <code>npx serve .</code> or <code>python -m http.server</code>, then open the provided <code>http://localhost</code> link in your browser.</li>
+            <li><strong>Deploy statically</strong>: Push this folder to a GitHub repository and activate <strong>GitHub Pages</strong> in Settings for secure, private HTTPS execution.</li>
+          </ol>
+        </div>
+
+        <!-- Drag & Drop Zone -->
+        <div class="dropzone" id="dropzone">
+          <div class="dropzone-border-glow"></div>
+          <div class="dropzone-content">
+            <div class="dropzone-icon-box">
+              <i data-lucide="upload-cloud" class="dropzone-icon"></i>
+            </div>
+            <h3>Drag & Drop EML or MSG File</h3>
+            <p>Supports Outlook .msg, .eml and raw text files</p>
+            <div class="dropzone-divider">
+              <span>or</span>
+            </div>
+            <button class="select-file-btn" id="select-file-btn">
+              <i data-lucide="file-plus"></i>
+              Browse Files
+            </button>
+            <input type="file" id="file-input" accept=".eml,.msg" style="display: none;">
+          </div>
+        </div>
+
+        <!-- Paste Raw MIME Option -->
+        <div class="paste-section">
+          <button class="paste-toggle-btn" id="paste-toggle-btn">
+            <i data-lucide="terminal"></i>
+            <span>Or paste raw email source / RFC822 text</span>
+            <i data-lucide="chevron-down" class="chevron-icon"></i>
+          </button>
+          <div class="paste-textarea-container" id="paste-textarea-container">
+            <textarea id="paste-textarea" placeholder="Paste full RFC822 source code here... (Include headers and MIME body)"></textarea>
+            <button class="analyze-raw-btn" id="analyze-raw-btn">
+              <i data-lucide="activity"></i> Analyze Raw Text
+            </button>
+          </div>
+        </div>
+
+        <!-- Privacy Assurances Grid -->
+        <div class="assurances-grid">
+          <div class="assurance-card">
+            <i data-lucide="eye-off" class="assure-icon"></i>
+            <h4>Zero Leakage</h4>
+            <p>Parsed entirely within browser memory. No servers receive the files.</p>
+          </div>
+          <div class="assurance-card">
+            <i data-lucide="image" class="assure-icon"></i>
+            <h4>Pixel Blocker</h4>
+            <p>Blocks tracking pixels & external images to hide your location/IP.</p>
+          </div>
+          <div class="assurance-card">
+            <i data-lucide="link-2" class="assure-icon"></i>
+            <h4>Link Auditing</h4>
+            <p>Deep scan of embedded URLs to screen redirects, HTTP links, and mismatches.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==============================================
+         2. DASHBOARD SCREEN (Active State)
+         ============================================== -->
+    <section class="screen dashboard-screen" id="dashboard-screen">
+      <!-- Left Metadata Sidebar Pane -->
+      <aside class="sidebar-pane">
+        
+        <!-- Summary sidebar -->
+        <div class="sidebar-card">
+          <button class="back-btn" id="back-to-upload">
+            <i data-lucide="arrow-left"></i>
+            <span>Open Another File</span>
+          </button>
+
+          <div class="email-summary-box">
+            <div class="meta-label">Subject</div>
+            <h3 class="email-summary-subject" id="meta-subject">(No Subject)</h3>
+            
+            <div class="meta-label mt-4">From</div>
+            <p class="email-summary-from" id="meta-from">-</p>
+
+            <div class="meta-label mt-3">To</div>
+            <p class="email-summary-to" id="meta-to">-</p>
+
+            <div class="meta-label mt-3">Date</div>
+            <p class="email-summary-date" id="meta-date">-</p>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-box">
+              <div class="stat-val" id="stat-attachments">0</div>
+              <div class="stat-lbl">Attachments</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-val" id="stat-urls">0</div>
+              <div class="stat-lbl">Parsed Links</div>
+            </div>
+          </div>
+
+          <!-- Quick Security Warning Summary -->
+          <div class="security-card mt-4" id="security-summary-card">
+            <div class="sec-card-header">
+              <i data-lucide="shield-alert" class="sec-icon"></i>
+              <h4>Security Audit</h4>
+            </div>
+            <div class="sec-card-body">
+              <ul class="sec-list" id="security-audit-list">
+                <!-- JS Populated -->
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Session History List Card -->
+        <div class="history-card" id="session-history-widget">
+          <h4>
+            <span>Session History</span>
+            <button class="delete-history-btn" id="clear-all-history" title="Clear all history"><i data-lucide="trash-2" style="width:13px;height:13px;"></i></button>
+          </h4>
+          <div class="history-list-viewport" id="history-list-viewport">
+            <!-- JS Populated -->
+          </div>
+        </div>
+
+      </aside>
+
+      <!-- Main Workspace Tabs -->
+      <div class="workspace-area">
+        <!-- Tab Navigation -->
+        <nav class="tabs-nav">
+          <button class="tab-btn active" data-tab="tab-overview">
+            <i data-lucide="layout"></i>
+            <span>Overview</span>
+          </button>
+          <button class="tab-btn" data-tab="tab-body">
+            <i data-lucide="mail"></i>
+            <span>Email Body</span>
+          </button>
+          <button class="tab-btn" data-tab="tab-urls">
+            <i data-lucide="link"></i>
+            <span>Extracted URLs</span>
+            <span class="tab-badge" id="badge-urls">0</span>
+          </button>
+          <button class="tab-btn" data-tab="tab-attachments">
+            <i data-lucide="paperclip"></i>
+            <span>Attachments</span>
+            <span class="tab-badge" id="badge-attachments">0</span>
+          </button>
+          <button class="tab-btn" data-tab="tab-headers">
+            <i data-lucide="route"></i>
+            <span>Hops & Headers</span>
+          </button>
+          <button class="tab-btn" data-tab="tab-raw">
+            <i data-lucide="code"></i>
+            <span>Raw Source</span>
+          </button>
+        </nav>
+
+        <!-- Tab Contents Wrapper -->
+        <div class="tabs-viewport">
+          
+          <!-- TAB 1: OVERVIEW -->
+          <div class="tab-content active" id="tab-overview">
+            <div class="overview-grid">
+              
+              <!-- Quick Actions -->
+              <div class="overview-card span-full">
+                <h3>Quick Export Actions</h3>
+                <div class="btn-group-row mt-3">
+                  <button class="action-btn" id="export-json-btn">
+                    <i data-lucide="file-json"></i> Export Analysis JSON
+                  </button>
+                  <button class="action-btn" id="export-body-txt-btn">
+                    <i data-lucide="file-text"></i> Save Text Body
+                  </button>
+                  <button class="action-btn" id="export-body-html-btn">
+                    <i data-lucide="file-code"></i> Save HTML Body
+                  </button>
+                </div>
+              </div>
+
+              <!-- Message Information -->
+              <div class="overview-card">
+                <h3>Core Information</h3>
+                <div class="info-list mt-3">
+                  <div class="info-item">
+                    <span class="info-label">Message-ID:</span>
+                    <span class="info-value text-copyable" id="info-message-id">-</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">CC:</span>
+                    <span class="info-value" id="info-cc">-</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">BCC:</span>
+                    <span class="info-value" id="info-bcc">-</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">Reply-To:</span>
+                    <span class="info-value" id="info-reply-to">-</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Security Scan Details -->
+              <div class="overview-card">
+                <h3>Privacy Shield & Redaction Control</h3>
+                <div class="privacy-status-box mt-3">
+                  <div class="privacy-status-header">
+                    <div class="privacy-status-indicator active"></div>
+                    <strong>Privacy Mode Active</strong>
+                  </div>
+                  <p class="privacy-status-text">Your email data is processed in browser memory. Choose privacy controls below:</p>
+                  
+                  <!-- Privacy toggle checkboxes -->
+                  <div class="checkbox-container mt-3">
+                    <label class="custom-checkbox">
+                      <input type="checkbox" id="privacy-shield-checkbox" checked>
+                      <span class="checkmark"></span>
+                      Enable Tracking Pixel Shield
+                    </label>
+                  </div>
+
+                  <div class="checkbox-container mt-2">
+                    <label class="custom-checkbox">
+                      <input type="checkbox" id="redaction-mode-checkbox">
+                      <span class="checkmark"></span>
+                      Enable Anonymization / Redact Sensitive Data
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Redaction active warning notice -->
+                <div class="redact-notice-box" id="redact-notice-box" style="display: none;">
+                  <i data-lucide="shield-alert"></i>
+                  <span><strong>Anonymizer ON:</strong> Recipient names, emails, and phone records have been temporarily replaced with pseudonyms.</span>
+                </div>
+              </div>
+
+              <!-- SPF / DKIM / DMARC Authenticity Seals -->
+              <div class="overview-card span-full">
+                <h3>MIME Authenticity Keys (Spoofing Check)</h3>
+                <p class="card-sub-desc">These cryptographic seals verify if the email sender's identity has been verified by the recipient mail server.</p>
+                <div class="seals-row">
+                  <!-- SPF -->
+                  <div class="seal-badge">
+                    <span class="seal-name">SPF Seal</span>
+                    <div class="seal-status" id="seal-spf">
+                      <i data-lucide="help-circle"></i> Neutral
+                    </div>
+                  </div>
+                  <!-- DKIM -->
+                  <div class="seal-badge">
+                    <span class="seal-name">DKIM Signature</span>
+                    <div class="seal-status" id="seal-dkim">
+                      <i data-lucide="help-circle"></i> None
+                    </div>
+                  </div>
+                  <!-- DMARC -->
+                  <div class="seal-badge">
+                    <span class="seal-name">DMARC Alignment</span>
+                    <div class="seal-status" id="seal-dmarc">
+                      <i data-lucide="help-circle"></i> None
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- TAB 2: EMAIL BODY -->
+          <div class="tab-content" id="tab-body">
+            <div class="body-card">
+              <div class="body-card-header">
+                <div class="body-view-toggles">
+                  <button class="view-toggle-btn active" id="btn-view-html">HTML View</button>
+                  <button class="view-toggle-btn" id="btn-view-text">Text View</button>
+                </div>
+                
+                <div class="body-header-actions">
+                  <span class="shield-notice" id="shield-notice-badge">
+                    <i data-lucide="shield"></i> Privacy Shield Enabled (Remote content blocked)
+                  </span>
+                  <button class="action-btn small-btn" id="btn-load-remote-content" style="display: none;">
+                    <i data-lucide="image"></i> Load Remote Images
+                  </button>
+                </div>
+              </div>
+
+              <!-- HTML Viewer (Sandboxed Iframe) -->
+              <div class="iframe-container" id="iframe-viewport-container">
+                <iframe id="email-iframe" sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe>
+              </div>
+
+              <!-- Text Viewer (Monospaced Scrolling) -->
+              <div class="text-viewport" id="text-viewport" style="display: none;">
+                <pre id="email-text-pre"></pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: EXTRACTED URLS -->
+          <div class="tab-content" id="tab-urls">
+            <div class="urls-card">
+              <div class="card-table-header">
+                <h3>Extracted Links & Security Audits</h3>
+                <div class="btn-group-row">
+                  <button class="action-btn small-btn" id="export-urls-csv">
+                    <i data-lucide="download"></i> Export as CSV
+                  </button>
+                </div>
+              </div>
+
+              <div class="table-container">
+                <table class="urls-table">
+                  <thead>
+                    <tr>
+                      <th>Base Domain</th>
+                      <th>Extracted Link (Full URL)</th>
+                      <th>Context Label / Text</th>
+                      <th>Security Flags</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="urls-table-body">
+                    <!-- JS Populated -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 4: ATTACHMENTS -->
+          <div class="tab-content" id="tab-attachments">
+            <div class="attachments-card">
+              <div class="card-table-header">
+                <h3>File Attachments</h3>
+                <button class="action-btn" id="download-all-zip-btn" disabled>
+                  <i data-lucide="folder-archive"></i> Download All as ZIP
+                </button>
+              </div>
+
+              <!-- Attachments Grid -->
+              <div class="attachments-grid mt-4" id="attachments-grid">
+                <!-- JS Populated -->
+              </div>
+              
+              <div class="no-attachments-placeholder" id="no-attachments-placeholder">
+                <i data-lucide="paperclip" class="placeholder-icon"></i>
+                <p>No attachments found in this email.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 5: HOPS & HEADERS -->
+          <div class="tab-content" id="tab-headers">
+            <div class="headers-layout">
+              <!-- Chronological Routing Hops -->
+              <div class="hops-card">
+                <h3>Email Server Routing Hops (Chronological Path)</h3>
+                <p class="card-sub-desc">Trace the path of how this email traveled through the network from original server to destination inbox.</p>
+                
+                <div class="hops-timeline mt-4" id="hops-timeline">
+                  <!-- JS Populated -->
+                </div>
+                <div class="no-hops-placeholder" id="no-hops-placeholder" style="display: none;">
+                  <p>No standard routing hops parsed. Raw 'Received' headers are below.</p>
+                </div>
+              </div>
+
+              <!-- Raw Headers List -->
+              <div class="headers-card">
+                <div class="card-table-header">
+                  <h3>All Technical Headers</h3>
+                  <div class="search-box">
+                    <i data-lucide="search" class="search-icon"></i>
+                    <input type="text" id="header-search-input" placeholder="Search headers (e.g. DKIM, SPF)...">
+                  </div>
+                </div>
+
+                <div class="table-container mt-3">
+                  <table class="headers-table">
+                    <thead>
+                      <tr>
+                        <th>Header Key</th>
+                        <th>Value</th>
+                      </tr>
+                    </thead>
+                    <tbody id="headers-table-body">
+                      <!-- JS Populated -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 6: RAW SOURCE -->
+          <div class="tab-content" id="tab-raw">
+            <div class="raw-card">
+              <div class="card-table-header">
+                <h3>Raw RFC822 Source</h3>
+                <button class="action-btn small-btn" id="copy-raw-btn">
+                  <i data-lucide="copy"></i> Copy Full Source
+                </button>
+              </div>
+              <div class="raw-code-container mt-3">
+                <pre class="line-numbers" id="raw-line-numbers"></pre>
+                <pre class="raw-code-viewport"><code id="raw-source-code"></code></pre>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==============================================
+       MODALS
+       ============================================== -->
+  
+  <!-- Attachment Preview Modal -->
+  <div class="modal-overlay" id="preview-modal">
+    <div class="preview-modal-card">
+      <div class="modal-header">
+        <div class="modal-title-box">
+          <i data-lucide="file-text" id="modal-title-icon"></i>
+          <h3 id="preview-filename">File Preview</h3>
+          <span class="modal-subtitle" id="preview-filesize">0 KB</span>
+        </div>
+        <button class="modal-close-btn" id="close-preview-btn">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <!-- INLINE ATTACHMENT CONTENT SEARCH BAR (Feature 5) -->
+      <div class="preview-search-toolbar" id="preview-search-toolbar">
+        <div class="search-box small" style="width: 250px;">
+          <i data-lucide="search" class="search-icon" style="top:50%;"></i>
+          <input type="text" id="modal-search-input" placeholder="Search within file..." style="padding: 6px 12px 6px 30px;">
+        </div>
+        <button class="attach-card-btn" id="modal-search-prev" title="Previous match" style="padding:6px 10px;"><i data-lucide="chevron-up" style="width:14px;height:14px;"></i></button>
+        <button class="attach-card-btn" id="modal-search-next" title="Next match" style="padding:6px 10px;"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></button>
+        <span class="search-results-count" id="modal-search-count">0 matches</span>
+      </div>
+      
+      <div class="modal-viewport">
+        <div class="preview-render-area" id="preview-render-area">
+          <!-- JS Dynamic Content -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <span class="preview-safe-badge"><i data-lucide="shield-check"></i> Sandboxed Local Preview</span>
+        <button class="action-btn" id="modal-download-btn">
+          <i data-lucide="download"></i> Download File
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <p>ZMail Diagnostics workbench // No data leaves your machine fully offline</p>
+  </footer>
+
+  <!-- CORS protocol detection and alert engine -->
+  <script>
+    (function() {
+      if (window.location.protocol === 'file:') {
+        console.warn("ZMail local CORS protocol restriction detected. Showing help banner.");
+        document.addEventListener('DOMContentLoaded', function() {
+          const alertNode = document.getElementById('cors-local-alert');
+          if (alertNode) {
+            alertNode.style.display = 'block';
+          }
+        });
+      }
+    })();
+  </script>
+
+  <!-- ==============================================
+       APPLICATION CONTROLLER (MODULAR JS ENGINE)
+       ============================================== -->
+  <script type="module">
+    // Load client-side parsers dynamically
+    import PostalMime from 'https://cdn.jsdelivr.net/npm/postal-mime@latest/+esm';
+    import MsgReader from 'https://esm.sh/@kenjiuno/msgreader@1.10.0';
+
+    // Expose MsgReader to window for backwards compatibility in other functions
+    window.MsgReader = MsgReader;
+
+    // 1. GLOBAL STATE MANAGER
+    let currentEmailData = null;
+    let rawEmlSource = '';
+    
+    // Feature toggles
+    let isPrivacyShieldEnabled = true;
+    let isRedactionModeEnabled = false;
+    
+    let hasBlockedRemoteContent = false;
+    let objectUrlsToCleanup = [];
+    let currentFileName = '';
+
+    // Multi-email Session History Storage (Feature 3)
+    let sessionEmails = [];
+
+    // Inline Search Storage variables (Feature 5)
+    let currentPreviewText = '';
+    let previewMatches = [];
+    let activeMatchIndex = -1;
+
+    // Tracker & Shortener Domains
+    const TRACKER_DOMAINS = [
+      'click.email', 'sendgrid.net', 'doubleclick.net', 'google-analytics.com', 
+      'marketo.com', 'hubspot.com', 'telemetry', 'pixel', 'tracker', 'mailgun.org',
+      'mandrillapp.com', 'constantcontact.com', 'rs6.net', 't.yesware.com', 
+      'link.ot.com', 'urldefense.com', 'proofpoint.com', 'mimecast.com'
+    ];
+
+    const SHORTENER_DOMAINS = [
+      'bit.ly', 'tinyurl.com', 't.co', 'goo.gl', 'is.gd', 'buff.ly', 'adf.ly',
+      'bit.do', 'lnkd.in', 'db.tt', 'qr.ae', 'ow.ly', 'short.io', 'rebrand.ly'
+    ];
+
+    // 2. INITIALIZE LISTENERS
+    document.addEventListener('DOMContentLoaded', () => {
+      initUIEventListeners();
+      initDragAndDrop();
+      lucide.createIcons();
+    });
+
+    // 3. UI EVENTS BINDINGS
+    function initUIEventListeners() {
+      const themeToggle = document.getElementById('theme-toggle');
+      const selectFileBtn = document.getElementById('select-file-btn');
+      const fileInput = document.getElementById('file-input');
+      const pasteToggleBtn = document.getElementById('paste-toggle-btn');
+      const pasteSection = pasteToggleBtn.parentElement;
+      const analyzeRawBtn = document.getElementById('analyze-raw-btn');
+      const backToUploadBtn = document.getElementById('back-to-upload');
+      
+      // Theme Selector Toggle
+      themeToggle.addEventListener('click', () => {
+        document.body.classList.toggle('light-mode');
+        document.body.classList.toggle('dark-mode');
+      });
+
+      // Browser File Dialog
+      selectFileBtn.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', handleFileSelect);
+
+      // Raw pasted text area accordion toggle
+      pasteToggleBtn.addEventListener('click', () => {
+        pasteSection.classList.toggle('open');
+      });
+
+      // Analyze raw pasting
+      analyzeRawBtn.addEventListener('click', () => {
+        const rawText = document.getElementById('paste-textarea').value.trim();
+        if (!rawText) {
+          alert('Please paste some email raw source text first.');
+          return;
+        }
+        currentFileName = 'Raw Pasted Email';
+        processRawEmail(rawText);
+      });
+
+      // Reset workspace states
+      backToUploadBtn.addEventListener('click', resetWorkspace);
+
+      // Workspace Tab clicks
+      const tabButtons = document.querySelectorAll('.tab-btn');
+      tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const tabId = btn.getAttribute('data-tab');
+          switchTab(tabId, btn);
+        });
+      });
+
+      // Privacy toggles
+      document.getElementById('privacy-shield-checkbox').addEventListener('change', (e) => {
+        isPrivacyShieldEnabled = e.target.checked;
+        if (currentEmailData) {
+          renderEmailBody();
+        }
+      });
+
+      // Feature 4: Privacy Redaction Mode Toggle
+      document.getElementById('redaction-mode-checkbox').addEventListener('change', (e) => {
+        isRedactionModeEnabled = e.target.checked;
+        document.getElementById('redact-notice-box').style.display = isRedactionModeEnabled ? 'flex' : 'none';
+        if (currentEmailData) {
+          // Re-render all metadata tabs to toggle redaction
+          renderSummarySidebar();
+          renderOverviewTab();
+          renderEmailBody();
+          renderUrlsTab();
+          renderAttachmentsTab();
+          renderHeadersTab();
+        }
+      });
+
+      // Email body modes HTML vs Text
+      const btnViewHtml = document.getElementById('btn-view-html');
+      const btnViewText = document.getElementById('btn-view-text');
+      const iframeContainer = document.getElementById('iframe-viewport-container');
+      const textViewport = document.getElementById('text-viewport');
+
+      btnViewHtml.addEventListener('click', () => {
+        btnViewHtml.classList.add('active');
+        btnViewText.classList.remove('active');
+        iframeContainer.style.display = 'block';
+        textViewport.style.display = 'none';
+      });
+
+      btnViewText.addEventListener('click', () => {
+        btnViewText.classList.add('active');
+        btnViewHtml.classList.remove('active');
+        iframeContainer.style.display = 'none';
+        textViewport.style.display = 'block';
+      });
+
+      // Load remote telemetry images bypass
+      const loadRemoteBtn = document.getElementById('btn-load-remote-content');
+      loadRemoteBtn.addEventListener('click', () => {
+        renderEmailBody(false); // disable shield for this render
+        const shieldNotice = document.getElementById('shield-notice-badge');
+        shieldNotice.className = "shield-notice warning";
+        shieldNotice.innerHTML = `<i data-lucide="shield-alert"></i> Shield Overridden (External content loaded)`;
+        loadRemoteBtn.style.display = 'none';
+        lucide.createIcons();
+      });
+
+      // Download attachments bundle
+      document.getElementById('download-all-zip-btn').addEventListener('click', downloadAllAttachmentsZip);
+
+      // Modals close triggers
+      document.getElementById('close-preview-btn').addEventListener('click', closePreviewModal);
+      document.getElementById('preview-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'preview-modal') closePreviewModal();
+      });
+
+      // Search technical header input
+      document.getElementById('header-search-input').addEventListener('input', (e) => {
+        filterHeadersTable(e.target.value.toLowerCase().trim());
+      });
+
+      // Copy source content to clipboard
+      document.getElementById('copy-raw-btn').addEventListener('click', () => {
+        copyTextToClipboard(rawEmlSource, 'Source code copied to clipboard!');
+      });
+
+      // Clear Session History (Feature 3)
+      document.getElementById('clear-all-history').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (confirm('Clear all email history from this session?')) {
+          sessionEmails = [];
+          renderSessionHistoryList();
+          resetWorkspace();
+        }
+      });
+
+      // Feature 5: Inline Search Modal Event Listeners
+      const modalSearchInput = document.getElementById('modal-search-input');
+      modalSearchInput.addEventListener('input', () => {
+        executeInlinePreviewSearch(modalSearchInput.value);
+      });
+      document.getElementById('modal-search-prev').addEventListener('click', () => navigatePreviewMatches(-1));
+      document.getElementById('modal-search-next').addEventListener('click', () => navigatePreviewMatches(1));
+    }
+
+    // 4. DRAG AND DROP / FILE HANDLING
+    function initDragAndDrop() {
+      const dropzone = document.getElementById('dropzone');
+
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          dropzone.classList.add('dragover');
+        }, false);
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          dropzone.classList.remove('dragover');
+        }, false);
+      });
+
+      dropzone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length > 0) {
+          const file = files[0];
+          currentFileName = file.name;
+          readFile(file);
+        }
+      }, false);
+    }
+
+    function handleFileSelect(e) {
+      const files = e.target.files;
+      if (files.length > 0) {
+        currentFileName = files[0].name;
+        readFile(files[0]);
+      }
+    }
+
+    // Dynamic reader supporting EML (text) and Outlook MSG (binary) client-side
+    function readFile(file) {
+      const name = file.name.toLowerCase();
+      const isMsg = name.endsWith('.msg');
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (isMsg) {
+          processRawMsg(e.target.result); // ArrayBuffer
+        } else {
+          processRawEmail(e.target.result); // text string
+        }
+      };
+      reader.onerror = () => {
+        alert('Error reading email file.');
+      };
+      
+      if (isMsg) {
+        reader.readAsArrayBuffer(file);
+      } else {
+        reader.readAsText(file);
+      }
+    }
+
+    // 5. CORE PARSER LOGIC
+
+    // EML Parser
+    async function processRawEmail(emlText) {
+      try {
+        rawEmlSource = emlText;
+        
+        // Parse EML client-side
+        const parsedData = await PostalMime.parse(emlText);
+        
+        // Save to Session History array (Feature 3)
+        const exists = sessionEmails.find(x => x.raw === emlText);
+        let activeId;
+        if (!exists) {
+          const sessionItem = {
+            id: 'eml_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            fileName: currentFileName || 'Imported Email',
+            subject: parsedData.subject || '(No Subject)',
+            from: formatAddress(parsedData.from),
+            date: formatDate(parsedData.date) || 'Unknown',
+            data: parsedData,
+            raw: emlText
+          };
+          sessionEmails.push(sessionItem);
+          activeId = sessionItem.id;
+        } else {
+          activeId = exists.id;
+        }
+
+        renderSessionHistoryList(activeId);
+        loadEmailState(parsedData, emlText);
+
+      } catch (error) {
+        console.error('Parsing EML failed: ', error);
+        alert('Failed to parse EML email. Please make sure the file is not corrupted.');
+      }
+    }
+
+    // Helper to dynamically get the MsgReader constructor from modern ESM bundles
+    function getMsgReaderConstructor() {
+      let constructor = window.MsgReader;
+      if (!constructor) return null;
+      if (typeof constructor !== 'function') {
+        if (typeof constructor.MsgReader === 'function') {
+          constructor = constructor.MsgReader;
+        } else if (typeof constructor.default === 'function') {
+          constructor = constructor.default;
+        }
+      }
+      return typeof constructor === 'function' ? constructor : null;
+    }
+
+    // Outlook MSG Parser (Binary OLE container reader)
+    async function processRawMsg(arrayBuffer) {
+      try {
+        const MsgReaderClass = getMsgReaderConstructor();
+        if (!MsgReaderClass) {
+          alert('Outlook MSG reader library failed to load from CDN. Please check your internet connection.');
+          return;
+        }
+
+        const reader = new MsgReaderClass(arrayBuffer);
+        const fileData = reader.getFileData();
+        
+        // Convert the Outlook binary representation into our standard diagnostics format
+        const standardData = convertMsgToStandardFormat(fileData, arrayBuffer);
+        
+        const textPlaceholder = `[Microsoft Outlook Binary MSG File: "${escapeHtml(currentFileName)}"]\n\nHeaders, body content, server hops, and attachments have been successfully extracted client-side in browser memory.\nRaw RFC822 source text code is unavailable for binary files.`;
+        
+        // Save to Session History
+        const exists = sessionEmails.find(x => x.fileName === currentFileName && x.subject === standardData.subject);
+        let activeId;
+        if (!exists) {
+          const sessionItem = {
+            id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            fileName: currentFileName || 'Outlook Message',
+            subject: standardData.subject,
+            from: formatAddress(standardData.from),
+            date: formatDate(standardData.date) || 'Unknown',
+            data: standardData,
+            raw: textPlaceholder
+          };
+          sessionEmails.push(sessionItem);
+          activeId = sessionItem.id;
+        } else {
+          activeId = exists.id;
+        }
+
+        renderSessionHistoryList(activeId);
+        loadEmailState(standardData, textPlaceholder);
+
+      } catch (error) {
+        console.error('Parsing MSG failed: ', error);
+        alert('Failed to parse Outlook .msg file. Make sure it is a valid compound binary file.');
+      }
+    }
+
+    // Helper: Map Outlook MSG fields into standardized formats
+    function convertMsgToStandardFormat(fileData, arrayBuffer) {
+      // Parse raw headers string into array of {key, value}
+      const headers = parseRawHeaders(fileData.headers || '');
+      
+      // Map recipients CC, BCC, TO
+      const to = [];
+      const cc = [];
+      const bcc = [];
+      if (fileData.recipients) {
+        fileData.recipients.forEach(r => {
+          const type = (r.recipientType || r.type || 'to').toString().toLowerCase();
+          const addr = { name: r.name || '', address: r.email || '' };
+          if (type === 'to' || type === '1') to.push(addr);
+          else if (type === 'cc' || type === '2') cc.push(addr);
+          else if (type === 'bcc' || type === '3') bcc.push(addr);
+          else to.push(addr);
+        });
+      }
+
+      // Map Sender
+      const from = {
+        name: fileData.senderName || '',
+        address: fileData.senderEmail || fileData.senderName || ''
+      };
+
+      // Extract specific headers
+      const dateHeader = headers.find(h => h.key.toLowerCase() === 'date');
+      const msgIdHeader = headers.find(h => h.key.toLowerCase() === 'message-id');
+
+      // Unpack attachments binary buffers
+      const attachments = [];
+      const MsgReaderClass = getMsgReaderConstructor();
+      if (fileData.attachments && MsgReaderClass) {
+        const reader = new MsgReaderClass(arrayBuffer);
+        fileData.attachments.forEach((att, idx) => {
+          try {
+            const attachContent = reader.getAttachment(att);
+            if (attachContent && attachContent.content) {
+              attachments.push({
+                filename: attachContent.fileName || att.fileName || `attachment_${idx}`,
+                mimeType: getMimeTypeFromExtension(attachContent.fileName || att.fileName),
+                content: attachContent.content // Uint8Array
+              });
+            }
+          } catch (err) {
+            console.error('Failed to parse attachment in MSG:', err);
+          }
+        });
+      }
+
+      return {
+        subject: fileData.subject || '(No Subject)',
+        from: from,
+        to: to,
+        cc: cc,
+        bcc: bcc,
+        date: dateHeader ? dateHeader.value : '',
+        messageId: msgIdHeader ? msgIdHeader.value : '',
+        html: fileData.bodyHtml || '',
+        text: fileData.body || '',
+        headers: headers,
+        attachments: attachments
+      };
+    }
+
+    // Load active email state
+    function loadEmailState(parsedData, rawText) {
+      currentEmailData = parsedData;
+      rawEmlSource = rawText;
+      
+      cleanupObjectUrls();
+
+      // Switch screen display
+      document.getElementById('upload-screen').classList.remove('active');
+      document.getElementById('dashboard-screen').classList.add('active');
+
+      // Reset tabs and scrollbars
+      switchTab('tab-overview', document.querySelector('.tab-btn[data-tab="tab-overview"]'));
+      document.getElementById('btn-view-html').click();
+      document.getElementById('privacy-shield-checkbox').checked = isPrivacyShieldEnabled;
+      document.getElementById('redaction-mode-checkbox').checked = isRedactionModeEnabled;
+      document.getElementById('redact-notice-box').style.display = isRedactionModeEnabled ? 'flex' : 'none';
+
+      // Render widgets
+      renderSummarySidebar();
+      renderOverviewTab();
+      renderEmailBody();
+      renderUrlsTab();
+      renderAttachmentsTab();
+      renderHeadersTab();
+      renderRawSourceTab();
+
+      lucide.createIcons();
+    }
+
+    // 6. RENDER LOGIC WIDGETS
+
+    // Sidebar & stats
+    function renderSummarySidebar() {
+      const activeData = getTargetData();
+      
+      document.getElementById('meta-subject').textContent = activeData.subject || '(No Subject)';
+      document.getElementById('meta-from').textContent = formatAddress(activeData.from);
+      document.getElementById('meta-to').textContent = formatAddresses(activeData.to);
+      document.getElementById('meta-date').textContent = formatDate(activeData.date) || 'Unknown Date';
+      
+      const attachmentCount = activeData.attachments ? activeData.attachments.length : 0;
+      document.getElementById('stat-attachments').textContent = attachmentCount;
+      document.getElementById('badge-attachments').textContent = attachmentCount;
+      
+      const urls = scanEmailUrls();
+      document.getElementById('stat-urls').textContent = urls.length;
+      document.getElementById('badge-urls').textContent = urls.length;
+    }
+
+    // Overview widgets & seals
+    function renderOverviewTab() {
+      const activeData = getTargetData();
+
+      document.getElementById('info-message-id').textContent = activeData.messageId || 'None';
+      document.getElementById('info-cc').textContent = formatAddresses(activeData.cc) || 'None';
+      document.getElementById('info-bcc').textContent = formatAddresses(activeData.bcc) || 'None';
+      
+      const replyToVal = activeData.headers.find(h => h.key.toLowerCase() === 'reply-to');
+      document.getElementById('info-reply-to').textContent = replyToVal ? replyToVal.value : 'None';
+
+      const messageIdNode = document.getElementById('info-message-id');
+      if (activeData.messageId) {
+        messageIdNode.classList.add('text-copyable');
+        messageIdNode.onclick = () => copyTextToClipboard(activeData.messageId, 'Message-ID copied!');
+      } else {
+        messageIdNode.classList.remove('text-copyable');
+        messageIdNode.onclick = null;
+      }
+
+      // Populate security audits
+      const auditList = document.getElementById('security-audit-list');
+      const securityCard = document.getElementById('security-summary-card');
+      auditList.innerHTML = '';
+      
+      let audits = [];
+      const urls = scanEmailUrls();
+      
+      const httpLinks = urls.filter(u => u.url.startsWith('http://'));
+      if (httpLinks.length > 0) {
+        audits.push({ type: 'warning', text: `${httpLinks.length} unencrypted link(s) (HTTP) found.` });
+      }
+
+      const trackers = urls.filter(u => u.audit === 'tracker');
+      if (trackers.length > 0) {
+        audits.push({ type: 'warning', text: `${trackers.length} redirect/telemetry tracker URL(s) detected.` });
+      }
+
+      // Feature 2: Audit URL Shorteners
+      const shorteners = urls.filter(u => u.audit === 'warning-shortener');
+      if (shorteners.length > 0) {
+        audits.push({ type: 'warning', text: `${shorteners.length} obscured link shortener(s) detected (e.g. bit.ly).` });
+      }
+
+      const ips = urls.filter(u => u.audit === 'danger-ip');
+      if (ips.length > 0) {
+        audits.push({ type: 'danger', text: `Direct IP address links detected (High Phishing Risk!).` });
+      }
+
+      const mismatches = urls.filter(u => u.audit === 'danger-mismatch');
+      if (mismatches.length > 0) {
+        audits.push({ type: 'danger', text: `Anchor domains mismatch actual destination href (Phishing risk).` });
+      }
+
+      const attachments = activeData.attachments || [];
+      const largeAtts = attachments.filter(a => (a.content ? a.content.byteLength : 0) > 10 * 1024 * 1024);
+      if (largeAtts.length > 0) {
+        audits.push({ type: 'warning', text: `Contains large file attachments exceeding 10MB.` });
+      }
+
+      if (audits.length > 0) {
+        securityCard.classList.remove('secure');
+        audits.forEach(aud => {
+          const li = document.createElement('li');
+          li.className = 'sec-list-item';
+          li.innerHTML = `
+            <span class="sec-bullet ${aud.type}"></span>
+            <span class="sec-text">${aud.text}</span>
+          `;
+          auditList.appendChild(li);
+        });
+      } else {
+        securityCard.classList.add('secure');
+        const li = document.createElement('li');
+        li.className = 'sec-list-item';
+        li.innerHTML = `
+          <span class="sec-bullet success"></span>
+          <span class="sec-text">All checked safety audits passed. No direct phishing risks detected.</span>
+        `;
+        auditList.appendChild(li);
+      }
+
+      // Feature 1: Render Authenticity Seals
+      renderAuthenticitySeals();
+
+      document.getElementById('export-json-btn').onclick = exportEmailAnalysisJSON;
+      document.getElementById('export-body-txt-btn').onclick = exportTextBody;
+      document.getElementById('export-body-html-btn').onclick = exportHtmlBody;
+    }
+
+    // Feature 1: SPF/DKIM/DMARC headers parser
+    function renderAuthenticitySeals() {
+      const activeData = getTargetData();
+      
+      let spf = 'neutral';
+      let dkim = 'none';
+      let dmarc = 'none';
+
+      activeData.headers.forEach(h => {
+        const key = h.key.toLowerCase();
+        const val = h.value.toLowerCase();
+
+        if (key === 'dkim-signature') {
+          if (dkim === 'none') dkim = 'signed';
+        }
+        if (key === 'received-spf') {
+          if (val.includes('pass')) spf = 'pass';
+          else if (val.includes('fail')) spf = 'fail';
+        }
+        if (key === 'authentication-results') {
+          const spfMatch = val.match(/spf=([^\s;]+)/);
+          if (spfMatch) {
+            const status = spfMatch[1];
+            if (status.includes('pass')) spf = 'pass';
+            else if (status.includes('fail')) spf = 'fail';
+          }
+          const dkimMatch = val.match(/dkim=([^\s;]+)/);
+          if (dkimMatch) {
+            const status = dkimMatch[1];
+            if (status.includes('pass')) dkim = 'pass';
+            else if (status.includes('fail')) dkim = 'fail';
+          }
+          const dmarcMatch = val.match(/dmarc=([^\s;]+)/);
+          if (dmarcMatch) {
+            const status = dmarcMatch[1];
+            if (status.includes('pass')) dmarc = 'pass';
+            else if (status.includes('fail')) dmarc = 'fail';
+          }
+        }
+      });
+
+      // SPF DOM
+      const spfNode = document.getElementById('seal-spf');
+      if (spf === 'pass') {
+        spfNode.className = 'seal-status pass';
+        spfNode.innerHTML = `<i data-lucide="check-circle-2"></i> SPF PASS`;
+      } else if (spf === 'fail') {
+        spfNode.className = 'seal-status fail';
+        spfNode.innerHTML = `<i data-lucide="x-circle"></i> SPF FAIL`;
+      } else {
+        spfNode.className = 'seal-status neutral';
+        spfNode.innerHTML = `<i data-lucide="help-circle"></i> Neutral`;
+      }
+
+      // DKIM DOM
+      const dkimNode = document.getElementById('seal-dkim');
+      if (dkim === 'pass') {
+        dkimNode.className = 'seal-status pass';
+        dkimNode.innerHTML = `<i data-lucide="check-circle-2"></i> DKIM PASS`;
+      } else if (dkim === 'signed') {
+        dkimNode.className = 'seal-status pass';
+        dkimNode.innerHTML = `<i data-lucide="shield-check"></i> DKIM SIGNED`;
+      } else if (dkim === 'fail') {
+        dkimNode.className = 'seal-status fail';
+        dkimNode.innerHTML = `<i data-lucide="x-circle"></i> DKIM FAIL`;
+      } else {
+        dkimNode.className = 'seal-status neutral';
+        dkimNode.innerHTML = `<i data-lucide="help-circle"></i> Unsigned`;
+      }
+
+      // DMARC DOM
+      const dmarcNode = document.getElementById('seal-dmarc');
+      if (dmarc === 'pass') {
+        dmarcNode.className = 'seal-status pass';
+        dmarcNode.innerHTML = `<i data-lucide="check-circle-2"></i> DMARC PASS`;
+      } else if (dmarc === 'fail') {
+        dmarcNode.className = 'seal-status fail';
+        dmarcNode.innerHTML = `<i data-lucide="x-circle"></i> DMARC FAIL`;
+      } else {
+        dmarcNode.className = 'seal-status neutral';
+        dmarcNode.innerHTML = `<i data-lucide="help-circle"></i> Unaligned`;
+      }
+      lucide.createIcons();
+    }
+
+    // Sandboxed Iframe & Email Body (With Privacy Shield)
+    function renderEmailBody(overrideShield = null) {
+      const shieldActive = overrideShield === null ? isPrivacyShieldEnabled : overrideShield;
+      
+      const activeData = getTargetData();
+      const htmlContent = activeData.html || '';
+      const textContent = activeData.text || '';
+      
+      const shieldNotice = document.getElementById('shield-notice-badge');
+      const loadRemoteBtn = document.getElementById('btn-load-remote-content');
+      const textPre = document.getElementById('email-text-pre');
+      const iframe = document.getElementById('email-iframe');
+
+      textPre.textContent = textContent || stripHtml(htmlContent) || '(No Body Content)';
+
+      if (htmlContent) {
+        hasBlockedRemoteContent = false;
+        let finalHtml = htmlContent;
+
+        if (shieldActive) {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(htmlContent, 'text/html');
+
+          // Neutralize remote images
+          const imgs = doc.querySelectorAll('img');
+          imgs.forEach(img => {
+            const src = img.getAttribute('src') || '';
+            if (src.startsWith('http://') || src.startsWith('https://')) {
+              hasBlockedRemoteContent = true;
+              img.setAttribute('data-original-src', src);
+              img.setAttribute('src', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>');
+              img.style.border = '1px dashed rgba(239, 68, 68, 0.4)';
+              img.style.background = 'rgba(239, 68, 68, 0.05)';
+              img.style.padding = '4px';
+              img.setAttribute('title', 'Blocked Telemetry Image / Tracker Pixel');
+            }
+          });
+
+          // Neutralize styling backgrounds
+          const elementsWithStyles = doc.querySelectorAll('[style]');
+          elementsWithStyles.forEach(el => {
+            let style = el.getAttribute('style') || '';
+            if (style.toLowerCase().includes('url(')) {
+              hasBlockedRemoteContent = true;
+              style = style.replace(/url\s*\(\s*['"]?https?:\/\/[^'"\)]+['"]?\s*\)/gi, 'none');
+              el.setAttribute('style', style);
+            }
+          });
+
+          // Neutralize external stylesheet links
+          const stylesheets = doc.querySelectorAll('link[rel="stylesheet"]');
+          stylesheets.forEach(link => {
+            const href = link.getAttribute('href') || '';
+            if (href.startsWith('http://') || href.startsWith('https://')) {
+              hasBlockedRemoteContent = true;
+              link.remove();
+            }
+          });
+
+          finalHtml = doc.documentElement.outerHTML;
+        }
+
+        if (shieldActive && hasBlockedRemoteContent) {
+          shieldNotice.className = "shield-notice";
+          shieldNotice.innerHTML = `<i data-lucide="shield"></i> Privacy Shield Active (Blocked trackers/pixels)`;
+          loadRemoteBtn.style.display = 'inline-flex';
+        } else if (shieldActive) {
+          shieldNotice.className = "shield-notice";
+          shieldNotice.innerHTML = `<i data-lucide="shield-check"></i> Local Privacy Mode Active`;
+          loadRemoteBtn.style.display = 'none';
+        } else {
+          shieldNotice.className = "shield-notice warning";
+          shieldNotice.innerHTML = `<i data-lucide="shield-alert"></i> Shield Overridden (External content loaded)`;
+          loadRemoteBtn.style.display = 'none';
+        }
+
+        iframe.srcdoc = finalHtml;
+      } else {
+        iframe.srcdoc = `
+          <html>
+          <head>
+            <style>
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                color: #333333; 
+                line-height: 1.6;
+                white-space: pre-wrap; 
+                padding: 20px;
+              }
+            </style>
+          </head>
+          <body>${escapeHtml(textContent || 'No content parsed.')}</body>
+          </html>
+        `;
+        shieldNotice.className = "shield-notice";
+        shieldNotice.innerHTML = `<i data-lucide="shield-check"></i> Standard Plain Text rendering`;
+        loadRemoteBtn.style.display = 'none';
+      }
+      lucide.createIcons();
+    }
+
+    function renderUrlsTab() {
+      const tableBody = document.getElementById('urls-table-body');
+      tableBody.innerHTML = '';
+      const urls = scanEmailUrls();
+
+      if (urls.length === 0) {
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 3rem;">
+              No embedded URLs detected.
+            </td>
+          </tr>
+        `;
+        document.getElementById('export-urls-csv').disabled = true;
+        return;
+      }
+
+      document.getElementById('export-urls-csv').disabled = false;
+      document.getElementById('export-urls-csv').onclick = () => exportUrlsCSV(urls);
+
+      urls.forEach((urlObj, idx) => {
+        const tr = document.createElement('tr');
+        
+        let flagPill = '';
+        if (urlObj.audit === 'danger-ip') {
+          flagPill = '<span class="flag-pill danger"><i data-lucide="alert-triangle"></i> Phish: Host IP</span>';
+        } else if (urlObj.audit === 'danger-mismatch') {
+          flagPill = '<span class="flag-pill danger"><i data-lucide="shield-alert"></i> Phish: Link Mismatch</span>';
+        } else if (urlObj.audit === 'warning-shortener') {
+          flagPill = '<span class="flag-pill warning"><i data-lucide="alert-circle"></i> Obscured: Shortener</span>';
+        } else if (urlObj.audit === 'tracker') {
+          flagPill = '<span class="flag-pill warning"><i data-lucide="eye"></i> Telemetry Tracker</span>';
+        } else if (urlObj.url.startsWith('http://')) {
+          flagPill = '<span class="flag-pill warning"><i data-lucide="lock-open"></i> Unencrypted HTTP</span>';
+        } else {
+          flagPill = '<span class="flag-pill success"><i data-lucide="check-circle-2"></i> Safe HTTPS</span>';
+        }
+
+        tr.innerHTML = `
+          <td class="domain-cell">${escapeHtml(urlObj.domain)}</td>
+          <td class="url-link-cell" title="${escapeHtml(urlObj.url)}">${escapeHtml(urlObj.url)}</td>
+          <td style="color: var(--text-secondary); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            ${escapeHtml(urlObj.anchorText || '(direct body link)')}
+          </td>
+          <td>${flagPill}</td>
+          <td>
+            <div class="btn-group-row" style="gap: 6px;">
+              <button class="attach-card-btn" id="copy-url-btn-${idx}" title="Copy URL">
+                <i data-lucide="copy" style="width:13px;height:13px;"></i>
+              </button>
+              <a href="${escapeHtml(urlObj.url)}" target="_blank" rel="noopener noreferrer" class="attach-card-btn primary" title="Open Link safely">
+                <i data-lucide="external-link" style="width:13px;height:13px;"></i>
+              </a>
+            </div>
+          </td>
+        `;
+        tableBody.appendChild(tr);
+
+        // Bind copy click
+        document.getElementById(`copy-url-btn-${idx}`).onclick = () => {
+          copyTextToClipboard(urlObj.url, 'Link copied!');
+        };
+      });
+    }
+
+    function renderAttachmentsTab() {
+      const activeData = getTargetData();
+      const grid = document.getElementById('attachments-grid');
+      const placeholder = document.getElementById('no-attachments-placeholder');
+      const zipBtn = document.getElementById('download-all-zip-btn');
+      
+      grid.innerHTML = '';
+      const attachments = activeData.attachments || [];
+
+      if (attachments.length === 0) {
+        placeholder.style.display = 'flex';
+        zipBtn.disabled = true;
+        return;
+      }
+
+      placeholder.style.display = 'none';
+      zipBtn.disabled = false;
+
+      attachments.forEach((attach, idx) => {
+        const filename = attach.filename || `attachment_${idx}`;
+        const sizeBytes = attach.content ? attach.content.byteLength : 0;
+        const formattedSize = formatBytes(sizeBytes);
+        const mime = (attach.mimeType || 'application/octet-stream').toLowerCase();
+        
+        let fileTypeClass = 'default';
+        let fileIcon = 'file';
+
+        if (mime.includes('image/')) {
+          fileTypeClass = 'image';
+          fileIcon = 'file-image';
+        } else if (mime.includes('pdf')) {
+          fileTypeClass = 'pdf';
+          fileIcon = 'file-text';
+        } else if (mime.includes('zip') || mime.includes('rar') || mime.includes('tar') || mime.includes('7z') || mime.includes('archive')) {
+          fileTypeClass = 'zip';
+          fileIcon = 'file-archive';
+        } else if (mime.includes('text/') || mime.includes('json') || mime.includes('javascript') || mime.includes('csv')) {
+          fileTypeClass = 'doc';
+          fileIcon = 'file-code';
+        }
+
+        const blob = new Blob([attach.content], { type: attach.mimeType || 'application/octet-stream' });
+        const localUrl = URL.createObjectURL(blob);
+        objectUrlsToCleanup.push(localUrl);
+
+        const card = document.createElement('div');
+        card.className = 'attachment-card';
+        card.innerHTML = `
+          <div class="attach-card-top">
+            <div class="attach-icon-wrapper ${fileTypeClass}">
+              <i data-lucide="${fileIcon}"></i>
+            </div>
+            <div class="attach-meta">
+              <div class="attach-name" title="${escapeHtml(filename)}">${escapeHtml(filename)}</div>
+              <div class="attach-size">${formattedSize}</div>
+            </div>
+          </div>
+          <div class="attach-actions">
+            <button class="attach-card-btn" id="preview-btn-${idx}" title="Preview file content">
+              <i data-lucide="eye" style="width: 14px; height: 14px;"></i> Preview
+            </button>
+            <a href="${localUrl}" download="${escapeHtml(filename)}" class="attach-card-btn primary" title="Download file">
+              <i data-lucide="download" style="width: 14px; height: 14px;"></i> Download
+            </a>
+          </div>
+        `;
+        grid.appendChild(card);
+
+        // Bind preview
+        document.getElementById(`preview-btn-${idx}`).onclick = () => {
+          previewAttachment(idx);
+        };
+      });
+    }
+
+    function renderHeadersTab() {
+      const activeData = getTargetData();
+      const timeline = document.getElementById('hops-timeline');
+      const noHops = document.getElementById('no-hops-placeholder');
+      
+      timeline.innerHTML = '';
+      noHops.style.display = 'none';
+
+      const receivedHeaders = activeData.headers.filter(h => h.key.toLowerCase() === 'received');
+      
+      if (receivedHeaders.length === 0) {
+        noHops.style.display = 'block';
+      } else {
+        const reversed = [...receivedHeaders].reverse();
+        reversed.forEach((header, index) => {
+          const val = header.value;
+          const fromMatch = val.match(/from\s+([^\s]+)(?:\s+\(([^)]+)\))?/i);
+          const byMatch = val.match(/by\s+([^\s]+)/i);
+          const withMatch = val.match(/with\s+([^\s]+)/i);
+          
+          let hopTime = '';
+          if (val.includes(';')) {
+            const parts = val.split(';');
+            hopTime = parts[parts.length - 1].trim();
+          }
+
+          const senderServer = fromMatch ? fromMatch[1] : 'Unknown';
+          const senderIP = fromMatch && fromMatch[2] ? fromMatch[2] : '';
+          const receiverServer = byMatch ? byMatch[1] : 'Unknown';
+          const protocolUsed = withMatch ? withMatch[1] : 'SMTP';
+
+          const hopDiv = document.createElement('div');
+          hopDiv.className = 'hop-node';
+          hopDiv.innerHTML = `
+            <div class="hop-marker"></div>
+            <div class="hop-info-card">
+              <div class="hop-header-row">
+                <span class="hop-number">Hop #${index + 1}</span>
+                <span class="hop-time">${escapeHtml(hopTime)}</span>
+              </div>
+              <div class="hop-servers">
+                ${escapeHtml(senderServer)} <span class="hop-arrow">&rarr;</span> ${escapeHtml(receiverServer)}
+              </div>
+              <div class="hops-details-row">
+                ${senderIP ? `<div class="hop-detail-item"><strong>Sender Details:</strong> ${escapeHtml(senderIP)}</div>` : ''}
+                <div class="hop-detail-item"><strong>Protocol:</strong> ${escapeHtml(protocolUsed)}</div>
+              </div>
+            </div>
+          `;
+          timeline.appendChild(hopDiv);
+        });
+      }
+
+      // Populate headers table
+      const tableBody = document.getElementById('headers-table-body');
+      tableBody.innerHTML = '';
+
+      activeData.headers.forEach(h => {
+        const tr = document.createElement('tr');
+        tr.setAttribute('data-header-key', h.key.toLowerCase());
+        tr.setAttribute('data-header-val', h.value.toLowerCase());
+        tr.innerHTML = `
+          <td style="font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); width: 250px;">
+            ${escapeHtml(h.key)}
+          </td>
+          <td style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); word-break: break-all;">
+            ${escapeHtml(h.value)}
+          </td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    }
+
+    function renderRawSourceTab() {
+      const codeNode = document.getElementById('raw-source-code');
+      const lineNumbersNode = document.getElementById('raw-line-numbers');
+
+      codeNode.textContent = rawEmlSource;
+
+      const lines = rawEmlSource.split('\n');
+      const numArr = Array.from({ length: lines.length }, (_, i) => i + 1);
+      lineNumbersNode.textContent = numArr.join('\n');
+    }
+
+    // Feature 3: Render Session History Sidebar
+    function renderSessionHistoryList(activeId = null) {
+      const listViewport = document.getElementById('history-list-viewport');
+      listViewport.innerHTML = '';
+
+      if (sessionEmails.length === 0) {
+        listViewport.innerHTML = `
+          <div style="font-size:0.75rem; text-align:center; color:var(--text-muted); padding: 10px 0;">
+            No emails loaded in session history.
+          </div>
+        `;
+        return;
+      }
+
+      sessionEmails.forEach(item => {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'history-item' + (activeId && activeId === item.id ? ' active' : '');
+        itemDiv.innerHTML = `
+          <div class="history-meta-box" id="hist-meta-${item.id}">
+            <div class="history-subj">${escapeHtml(item.subject)}</div>
+            <div class="history-from">${escapeHtml(item.from)}</div>
+          </div>
+          <button class="delete-history-btn" id="del-hist-${item.id}" title="Remove from session history">
+            <i data-lucide="x" style="width:12px;height:12px;"></i>
+          </button>
+        `;
+        listViewport.appendChild(itemDiv);
+
+        // Bind clicks
+        document.getElementById(`hist-meta-${item.id}`).onclick = () => {
+          loadEmailState(item.data, item.raw);
+          document.querySelectorAll('.history-item').forEach(x => x.classList.remove('active'));
+          itemDiv.classList.add('active');
+        };
+
+        document.getElementById(`del-hist-${item.id}`).onclick = (e) => {
+          e.stopPropagation();
+          deleteSessionItem(item.id);
+        };
+      });
+      lucide.createIcons();
+    }
+
+    function deleteSessionItem(id) {
+      const index = sessionEmails.findIndex(x => x.id === id);
+      if (index > -1) {
+        sessionEmails.splice(index, 1);
+        renderSessionHistoryList();
+        
+        // Load the next item or return to landing dropzone
+        if (sessionEmails.length > 0) {
+          const nextEmail = sessionEmails[sessionEmails.length - 1];
+          renderSessionHistoryList(nextEmail.id);
+          loadEmailState(nextEmail.data, nextEmail.raw);
+        } else {
+          resetWorkspace();
+        }
+      }
+    }
+
+    // 7. CLIENT ZIP PACKAGING
+    async function downloadAllAttachmentsZip() {
+      const activeData = getTargetData();
+      const attachments = activeData.attachments || [];
+      if (attachments.length === 0) return;
+
+      const zipBtn = document.getElementById('download-all-zip-btn');
+      const originalHtml = zipBtn.innerHTML;
+      
+      try {
+        zipBtn.disabled = true;
+        zipBtn.innerHTML = `<i data-lucide="loader" class="animate-spin"></i> Building ZIP...`;
+        lucide.createIcons();
+
+        const zip = new JSZip();
+
+        attachments.forEach((attach, idx) => {
+          const filename = attach.filename || `attachment_${idx}`;
+          zip.file(filename, attach.content);
+        });
+
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const localUrl = URL.createObjectURL(zipBlob);
+        
+        const a = document.createElement('a');
+        a.href = localUrl;
+        const safeSubject = (activeData.subject || 'email').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        a.download = `${safeSubject}_attachments.zip`;
+        document.body.appendChild(a);
+        a.click();
+        
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(localUrl), 1000);
+
+      } catch (error) {
+        console.error('ZIP compilation failed:', error);
+        alert('Failed to package attachments as ZIP.');
+      } finally {
+        zipBtn.disabled = false;
+        zipBtn.innerHTML = originalHtml;
+        lucide.createIcons();
+      }
+    }
+
+    // 8. ATTACHMENT PREVIEW ENGINE
+    function previewAttachment(idx) {
+      const activeData = getTargetData();
+      const attachments = activeData.attachments || [];
+      if (idx >= attachments.length) return;
+
+      const attach = attachments[idx];
+      const filename = attach.filename || `attachment_${idx}`;
+      const sizeBytes = attach.content ? attach.content.byteLength : 0;
+      const mime = (attach.mimeType || 'application/octet-stream').toLowerCase();
+      
+      document.getElementById('preview-filename').textContent = filename;
+      document.getElementById('preview-filesize').textContent = formatBytes(sizeBytes);
+
+      const renderArea = document.getElementById('preview-render-area');
+      const searchToolbar = document.getElementById('preview-search-toolbar');
+      renderArea.innerHTML = '';
+      searchToolbar.style.display = 'none';
+
+      const modalDownloadBtn = document.getElementById('modal-download-btn');
+      const blob = new Blob([attach.content], { type: attach.mimeType || 'application/octet-stream' });
+      const localUrl = URL.createObjectURL(blob);
+      
+      modalDownloadBtn.onclick = () => {
+        const a = document.createElement('a');
+        a.href = localUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      };
+
+      if (mime.includes('image/')) {
+        const img = document.createElement('img');
+        img.src = localUrl;
+        img.className = 'preview-image';
+        img.alt = filename;
+        renderArea.appendChild(img);
+
+      } else if (mime.includes('text/') || mime.includes('json') || mime.includes('javascript') || mime.includes('csv') || mime.includes('xml')) {
+        // Feature 5: Searchable text previewer
+        const decoder = new TextDecoder('utf-8');
+        currentPreviewText = decoder.decode(attach.content);
+        previewMatches = [];
+        activeMatchIndex = -1;
+
+        // Reset search inputs
+        document.getElementById('modal-search-input').value = '';
+        document.getElementById('modal-search-count').textContent = '0 matches';
+
+        // Render search toolbar
+        searchToolbar.style.display = 'flex';
+
+        const pre = document.createElement('pre');
+        pre.className = 'preview-text';
+        pre.id = 'modal-preview-text-block';
+        pre.textContent = currentPreviewText;
+        renderArea.appendChild(pre);
+
+      } else if (mime.includes('pdf')) {
+        const iframe = document.createElement('iframe');
+        iframe.src = localUrl;
+        iframe.className = 'preview-pdf-frame';
+        renderArea.appendChild(iframe);
+
+      } else {
+        const fallback = document.createElement('div');
+        fallback.className = 'preview-fallback';
+        fallback.innerHTML = `
+          <i data-lucide="file-warning"></i>
+          <p>Local preview is not supported for this file type (${escapeHtml(attach.mimeType || 'unknown')}).</p>
+          <p style="font-size: 0.75rem; color: var(--text-muted)">Please download the file directly to view it.</p>
+        `;
+        renderArea.appendChild(fallback);
+      }
+
+      document.getElementById('preview-modal').classList.add('active');
+      lucide.createIcons();
+    }
+
+    function closePreviewModal() {
+      document.getElementById('preview-modal').classList.remove('active');
+      document.getElementById('preview-render-area').innerHTML = '';
+      document.getElementById('preview-search-toolbar').style.display = 'none';
+      currentPreviewText = '';
+      previewMatches = [];
+      activeMatchIndex = -1;
+    }
+
+    // Feature 5: Inline text search matching highlighter
+    function executeInlinePreviewSearch(query) {
+      const textBlock = document.getElementById('modal-preview-text-block');
+      const countLabel = document.getElementById('modal-search-count');
+      
+      if (!textBlock || !currentPreviewText) return;
+
+      if (!query) {
+        textBlock.textContent = currentPreviewText;
+        countLabel.textContent = '0 matches';
+        previewMatches = [];
+        activeMatchIndex = -1;
+        return;
+      }
+
+      const safeQuery = query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'); // escape regex
+      const regex = new RegExp(safeQuery, 'gi');
+      
+      previewMatches = [];
+      let match;
+      while ((match = regex.exec(currentPreviewText)) !== null) {
+        previewMatches.push({
+          start: match.index,
+          end: match.index + query.length,
+          text: match[0]
+        });
+      }
+
+      if (previewMatches.length === 0) {
+        textBlock.textContent = currentPreviewText;
+        countLabel.textContent = '0 matches';
+        activeMatchIndex = -1;
+        return;
+      }
+
+      activeMatchIndex = 0;
+      highlightAndScrollPreviewMatches(query);
+    }
+
+    function highlightAndScrollPreviewMatches(query) {
+      const textBlock = document.getElementById('modal-preview-text-block');
+      const countLabel = document.getElementById('modal-search-count');
+      
+      countLabel.textContent = `${activeMatchIndex + 1} of ${previewMatches.length} matches`;
+
+      let htmlOutput = '';
+      let lastIndex = 0;
+
+      previewMatches.forEach((m, idx) => {
+        htmlOutput += escapeHtml(currentPreviewText.substring(lastIndex, m.start));
+        const isActive = idx === activeMatchIndex;
+        htmlOutput += `<mark class="search-match${isActive ? ' active' : ''}" id="match-node-${idx}">${escapeHtml(m.text)}</mark>`;
+        lastIndex = m.end;
+      });
+
+      htmlOutput += escapeHtml(currentPreviewText.substring(lastIndex));
+      textBlock.innerHTML = htmlOutput;
+
+      const activeNode = document.getElementById(`match-node-${activeMatchIndex}`);
+      if (activeNode) {
+        activeNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
+    function navigatePreviewMatches(direction) {
+      if (previewMatches.length === 0) return;
+      
+      activeMatchIndex += direction;
+      if (activeMatchIndex < 0) activeMatchIndex = previewMatches.length - 1;
+      if (activeMatchIndex >= previewMatches.length) activeMatchIndex = 0;
+
+      const query = document.getElementById('modal-search-input').value;
+      highlightAndScrollPreviewMatches(query);
+    }
+
+    // 9. AUDITS & SECURITY UTILS
+
+    // Feature 4: Privacy RedactionMode Anonymizer Engine
+    function getTargetData() {
+      if (!currentEmailData) return null;
+      if (!isRedactionModeEnabled) return currentEmailData;
+
+      // Duplicate data copy
+      const copy = JSON.parse(JSON.stringify(currentEmailData));
+      
+      let emailMap = {};
+      let nameMap = {};
+      let emailCounter = 1;
+      let nameCounter = 1;
+
+      const anonymizeEmail = (emailStr) => {
+        if (!emailStr) return '';
+        const clean = emailStr.trim().toLowerCase();
+        if (!emailMap[clean]) {
+          emailMap[clean] = `anonymous_recipient_${emailCounter++}@redacted.local`;
+        }
+        return emailMap[clean];
+      };
+
+      const anonymizeName = (nameStr) => {
+        if (!nameStr) return '';
+        const clean = nameStr.trim();
+        if (!nameMap[clean]) {
+          nameMap[clean] = `Anonymized User ${nameCounter++}`;
+        }
+        return nameMap[clean];
+      };
+
+      const anonymizeAddressObj = (obj) => {
+        if (!obj) return;
+        if (obj.address) obj.address = anonymizeEmail(obj.address);
+        if (obj.name) obj.name = anonymizeName(obj.name);
+      };
+
+      anonymizeAddressObj(copy.from);
+      if (copy.to) copy.to.forEach(anonymizeAddressObj);
+      if (copy.cc) copy.cc.forEach(anonymizeAddressObj);
+      if (copy.bcc) copy.bcc.forEach(anonymizeAddressObj);
+
+      if (copy.subject) {
+        copy.subject = `[AUDITED SECURITY THREAD] ${anonymizeName(copy.subject)}`;
+      }
+
+      // Redact inside text and html bodies
+      const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/gi;
+      if (copy.text) {
+        copy.text = copy.text.replace(emailRegex, (match) => anonymizeEmail(match));
+      }
+      if (copy.html) {
+        copy.html = copy.html.replace(emailRegex, (match) => anonymizeEmail(match));
+      }
+
+      // Redact inside headers values
+      copy.headers.forEach(h => {
+        h.value = h.value.replace(emailRegex, (match) => anonymizeEmail(match));
+      });
+
+      return copy;
+    }
+
+    // Scan unique URLs with safety checks
+    function scanEmailUrls() {
+      const activeData = getTargetData();
+      if (!activeData) return [];
+
+      const textBody = activeData.text || '';
+      const htmlBody = activeData.html || '';
+      const compositeText = textBody + ' ' + htmlBody;
+      
+      const urlRegex = /https?:\/\/(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?::\d+)?(?:\/[^\s"']*)?/gi;
+      let matches = compositeText.match(urlRegex) || [];
+      let uniqueUrls = [...new Set(matches)];
+
+      const parsedUrls = uniqueUrls.map(url => {
+        let domain = 'unknown';
+        try {
+          const urlObj = new URL(url);
+          domain = urlObj.hostname;
+        } catch (e) {
+          const match = url.match(/https?:\/\/([^\/\s]+)/i);
+          if (match) domain = match[1];
+        }
+
+        let anchorText = '';
+        if (htmlBody) {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(htmlBody, 'text/html');
+          const anchors = doc.querySelectorAll('a');
+          for (let a of anchors) {
+            if (a.getAttribute('href') === url) {
+              anchorText = a.textContent.trim();
+              break;
+            }
+          }
+        }
+
+        let auditStatus = 'safe';
+        
+        // Audit 1: Numeric IP host
+        const ipHostRegex = /^(?:\d{1,3}\.){3}\d{1,3}$/;
+        if (ipHostRegex.test(domain)) {
+          auditStatus = 'danger-ip';
+        }
+
+        // Audit 2: Known tracking domain
+        const isTracker = TRACKER_DOMAINS.some(track => domain.toLowerCase().includes(track));
+        if (isTracker && auditStatus === 'safe') {
+          auditStatus = 'tracker';
+        }
+
+        // Feature 2: Audit URL Shorteners
+        const isShortener = SHORTENER_DOMAINS.some(short => domain.toLowerCase() === short || domain.toLowerCase().endsWith('.' + short));
+        if (isShortener && auditStatus === 'safe') {
+          auditStatus = 'warning-shortener';
+        }
+
+        // Audit 4: Phishing Domain Mismatch
+        if (anchorText && anchorText.includes('.') && auditStatus === 'safe') {
+          const anchorClean = anchorText.replace(/^(https?:\/\/)?(www\.)?/i, '').toLowerCase();
+          const hrefClean = domain.replace(/^www\./i, '').toLowerCase();
+          if ((anchorClean.includes('.com') || anchorClean.includes('.org') || anchorClean.includes('.net') || anchorClean.includes('@')) && !hrefClean.includes(anchorClean.split('/')[0])) {
+            auditStatus = 'danger-mismatch';
+          }
+        }
+
+        return {
+          url: url,
+          domain: domain,
+          anchorText: anchorText,
+          audit: auditStatus
+        };
+      });
+
+      return parsedUrls;
+    }
+
+    // Helper: Parse raw headers block string into array of {key, value}
+    function parseRawHeaders(headersString) {
+      if (!headersString) return [];
+      const lines = headersString.split(/\r?\n/);
+      const parsed = [];
+      let currentHeader = null;
+      
+      lines.forEach(line => {
+        if (line.match(/^\s/) && currentHeader) {
+          currentHeader.value += ' ' + line.trim();
+        } else {
+          const colonIndex = line.indexOf(':');
+          if (colonIndex > 0) {
+            if (currentHeader) parsed.push(currentHeader);
+            currentHeader = {
+              key: line.substring(0, colonIndex).trim(),
+              value: line.substring(colonIndex + 1).trim()
+            };
+          }
+        }
+      });
+      if (currentHeader) parsed.push(currentHeader);
+      return parsed;
+    }
+
+    function formatAddress(obj) {
+      if (!obj) return '-';
+      if (obj.name) return `${obj.name} <${obj.address}>`;
+      return obj.address;
+    }
+
+    function formatAddresses(arr) {
+      if (!arr || arr.length === 0) return '';
+      return arr.map(formatAddress).join(', ');
+    }
+
+    function formatBytes(bytes, decimals = 2) {
+      if (!+bytes) return '0 Bytes';
+      const k = 1024;
+      const dm = decimals < 0 ? 0 : decimals;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+    }
+
+    function formatDate(dateString) {
+      if (!dateString) return null;
+      try {
+        const d = new Date(dateString);
+        if (isNaN(d.getTime())) return dateString;
+        return d.toLocaleString(undefined, {
+          dateStyle: 'medium',
+          timeStyle: 'short'
+        });
+      } catch (e) {
+        return dateString;
+      }
+    }
+
+    function filterHeadersTable(query) {
+      const rows = document.querySelectorAll('#headers-table-body tr');
+      rows.forEach(row => {
+        const key = row.getAttribute('data-header-key') || '';
+        const val = row.getAttribute('data-header-val') || '';
+        if (key.includes(query) || val.includes(query)) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    }
+
+    function copyTextToClipboard(text, message) {
+      navigator.clipboard.writeText(text).then(() => {
+        alert(message || 'Copied to clipboard!');
+      }).catch(err => {
+        console.error('Clipboard copy failed:', err);
+      });
+    }
+
+    function stripHtml(html) {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      return doc.body.textContent || "";
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function switchTab(tabId, buttonElement) {
+      const tabButtons = document.querySelectorAll('.tab-btn');
+      tabButtons.forEach(btn => btn.classList.remove('active'));
+      buttonElement.classList.add('active');
+
+      const tabContents = document.querySelectorAll('.tab-content');
+      tabContents.forEach(content => content.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+    }
+
+    function resetWorkspace() {
+      currentEmailData = null;
+      rawEmlSource = '';
+      cleanupObjectUrls();
+
+      document.getElementById('file-input').value = '';
+      document.getElementById('paste-textarea').value = '';
+
+      document.getElementById('dashboard-screen').classList.remove('active');
+      document.getElementById('upload-screen').classList.add('active');
+    }
+
+    function cleanupObjectUrls() {
+      objectUrlsToCleanup.forEach(url => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          console.warn('Revocation failed: ', e);
+        }
+      });
+      objectUrlsToCleanup = [];
+    }
+
+    // Helper: Map extension strings to MIME types
+    function getMimeTypeFromExtension(filename) {
+      if (!filename) return 'application/octet-stream';
+      const ext = filename.split('.').pop().toLowerCase();
+      const mimeMap = {
+        'png': 'image/png',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'gif': 'image/gif',
+        'svg': 'image/svg+xml',
+        'webp': 'image/webp',
+        'pdf': 'application/pdf',
+        'zip': 'application/zip',
+        'rar': 'application/x-rar-compressed',
+        '7z': 'application/x-7z-compressed',
+        'txt': 'text/plain',
+        'text': 'text/plain',
+        'log': 'text/plain',
+        'csv': 'text/csv',
+        'json': 'application/json',
+        'html': 'text/html',
+        'htm': 'text/html',
+        'xml': 'text/xml',
+        'doc': 'application/msword',
+        'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'xls': 'application/vnd.ms-excel',
+        'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      };
+      return mimeMap[ext] || 'application/octet-stream';
+    }
+
+    // 10. CLIENT-SIDE EXPORTS
+    function exportEmailAnalysisJSON() {
+      const activeData = getTargetData();
+      if (!activeData) return;
+
+      const scanUrls = scanEmailUrls();
+      const exportObject = {
+        analysisTimestamp: new Date().toISOString(),
+        meta: {
+          subject: activeData.subject,
+          from: activeData.from,
+          to: activeData.to,
+          cc: activeData.cc,
+          bcc: activeData.bcc,
+          date: activeData.date,
+          messageId: activeData.messageId
+        },
+        securityAudits: {
+          totalUrlsScanned: scanUrls.length,
+          safetyStatus: scanUrls.some(u => u.audit.startsWith('danger')) ? 'risk-detected' : 'clean',
+          urls: scanUrls
+        },
+        attachmentsList: (activeData.attachments || []).map((a, idx) => ({
+          filename: a.filename || `attachment_${idx}`,
+          mimeType: a.mimeType,
+          sizeBytes: a.content ? a.content.byteLength : 0
+        }))
+      };
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObject, null, 2));
+      const safeSubject = (activeData.subject || 'analysis').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      triggerLocalDownload(dataStr, `${safeSubject}_audit_report.json`);
+    }
+
+    function exportTextBody() {
+      const activeData = getTargetData();
+      if (!activeData) return;
+      const textVal = activeData.text || stripHtml(activeData.html || '');
+      const dataStr = "data:text/plain;charset=utf-8," + encodeURIComponent(textVal);
+      const safeSubject = (activeData.subject || 'body').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      triggerLocalDownload(dataStr, `${safeSubject}_body.txt`);
+    }
+
+    function exportHtmlBody() {
+      const activeData = getTargetData();
+      if (!activeData) return;
+      const htmlVal = activeData.html || `<html><body>${escapeHtml(activeData.text || '')}</body></html>`;
+      const dataStr = "data:text/html;charset=utf-8," + encodeURIComponent(htmlVal);
+      const safeSubject = (activeData.subject || 'body').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      triggerLocalDownload(dataStr, `${safeSubject}_body.html`);
+    }
+
+    function exportUrlsCSV(urls) {
+      const activeData = getTargetData();
+      let csvContent = "data:text/csv;charset=utf-8,";
+      csvContent += "Domain,Full URL,Context Anchor,Safety Audit Tag\n";
+      urls.forEach(u => {
+        const row = [
+          `"${(u.domain || '').replace(/"/g, '""')}"`,
+          `"${(u.url || '').replace(/"/g, '""')}"`,
+          `"${(u.anchorText || '').replace(/"/g, '""')}"`,
+          `"${u.audit}"`
+        ].join(",");
+        csvContent += row + "\n";
+      });
+      const safeSubject = (activeData.subject || 'urls').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      triggerLocalDownload(csvContent, `${safeSubject}_extracted_links.csv`);
+    }
+
+    function triggerLocalDownload(uri, filename) {
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", uri);
+      downloadAnchor.setAttribute("download", filename);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      document.body.removeChild(downloadAnchor);
+    }
+  </script>
+</body>
+</html>
